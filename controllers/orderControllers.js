@@ -1,93 +1,63 @@
 const Order = require("../models/order");
 const Product = require("../models/product");
 const { isAdmin } = require("./userControllers");
+const { Op } = require("sequelize");
 
 exports.createOrder = async (req, res) => {
     try {
         if (req.user == null) {
-            res.status(404).json({
-                message: "Please Login to create an order",
-            });
-            return;
+            return res.status(401).json({ message: "Please Login to create an order" });
         }
 
-        const latestOrder = await Order.find().sort({ date: -1 }).limit(1);
-
+        // Generate next orderId
+        const latestOrder = await Order.findOne({ order: [["date", "DESC"]] });
         let orderId = "ORD00001";
 
-        if (latestOrder.length > 0) {
-            const latestOrderIdInString = latestOrder[0].orderId;
-            // Assume format "ORDxxxxx"
-            const lastOrderIdWithoutPrefix = latestOrderIdInString.replace("ORD", "");
-            const lastOrderIdInteger = parseInt(lastOrderIdWithoutPrefix);
-
-            if (!isNaN(lastOrderIdInteger)) {
-                const newOrderIdInteger = lastOrderIdInteger + 1;
-                const newOrderIdWithoutPrefix = newOrderIdInteger
-                    .toString()
-                    .padStart(5, "0");
-                orderId = "ORD" + newOrderIdWithoutPrefix;
+        if (latestOrder) {
+            const lastNum = parseInt(latestOrder.orderId.replace("ORD", ""));
+            if (!isNaN(lastNum)) {
+                orderId = "ORD" + (lastNum + 1).toString().padStart(5, "0");
             }
+        }
+
+        if (!req.body.items || !Array.isArray(req.body.items)) {
+            return res.status(400).json({ message: "Invalid item format" });
         }
 
         const items = [];
         let total = 0;
 
-        //check if items are provided and is it an array
-        if (req.body.items != null && Array.isArray(req.body.items)) {
-            for (let i = 0; i < req.body.items.length; i++) {
-                let item = req.body.items[i];
-
-                let product = await Product.findOne({
-                    productId: item.productId,
-                });
-
-                if (product == null) {
-                    res.status(400).json({
-                        message: "Invalid product Id : " + item.productId,
-                    });
-                    return;
-                }
-
-                items[i] = {
-                    productId: product.productId,
-                    productName: product.name,
-                    image: product.images[0],
-                    price: product.price,
-                    qty: item.qty,
-                };
-
-                total += product.price * item.qty;
+        for (const item of req.body.items) {
+            const product = await Product.findOne({ where: { productId: item.productId } });
+            if (!product) {
+                return res.status(400).json({ message: "Invalid product Id : " + item.productId });
             }
-        } else {
-            res.status(400).json({
-                message: "Invalid item format",
+
+            items.push({
+                productId: product.productId,
+                productName: product.name,
+                image: product.images[0],
+                price: product.price,
+                qty: item.qty,
             });
-            return;
+
+            total += product.price * item.qty;
         }
 
-        const newOrder = new Order({
-            orderId: orderId,
+        const newOrder = await Order.create({
+            orderId,
             email: req.user.email,
             name: req.user.firstName + " " + req.user.lastName,
             address: req.body.address,
             phone: req.body.phone,
-            items: items,
-            total: total,
+            items,
+            total,
         });
 
-        const result = await newOrder.save();
-
-        res.json({
-            message: "Order Created Successfully",
-            result: result,
-        });
+        res.json({ message: "Order Created Successfully", result: newOrder });
     } catch (error) {
         console.error("Error creating order:", error);
-        res.status(500).json({
-            message: "Failed to create order",
-            error: error.message,
-        });
+        res.status(500).json({ message: "Failed to create order", error: error.message });
     }
 };
 
@@ -96,77 +66,50 @@ exports.getOrders = async (req, res) => {
     const limit = parseInt(req.params.limit) || 10;
 
     if (req.user == null) {
-        res.status(404).json({
-            message: "Please Login to view orders",
-        });
-        return;
+        return res.status(401).json({ message: "Please Login to view orders" });
     }
 
     try {
-        if (req.user.role == "admin") {
-            const orderCount = await Order.countDocuments();
-            const totalPages = Math.ceil(orderCount / limit);
+        const where = req.user.role === "admin" ? {} : { email: req.user.email };
 
-            const orders = await Order.find()
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .sort({ date: -1 });
-            res.json({
-                orders: orders,
-                totalPages: totalPages,
-            });
-        } else {
-            // If customer, show only their orders
-            const orderCount = await Order.countDocuments({ email: req.user.email });
-            const totalPages = Math.ceil(orderCount / limit);
-            const orders = await Order.find({ email: req.user.email })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .sort({ date: -1 });
-            res.json({
-                orders: orders,
-                totalPages: totalPages,
-            });
-        }
-    } catch (err) {
-        res.status(500).json({
-            message: "Failed to fetch orders",
+        const { count, rows: orders } = await Order.findAndCountAll({
+            where,
+            order: [["date", "DESC"]],
+            limit,
+            offset: (page - 1) * limit,
         });
+
+        res.json({
+            orders,
+            totalPages: Math.ceil(count / limit),
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Failed to fetch orders" });
     }
 };
 
-exports.updateOrder = (req, res) => {
-    if (isAdmin(req)) {
-        const orderId = req.params.id;
-        const status = req.body.status;
-        const notes = req.body.notes;
+exports.updateOrder = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Access denied" });
+    }
 
-        Order.findOneAndUpdate(
-            { orderId: orderId },
-            { status: status, notes: notes },
-            { new: true }
-        )
-            .then((updatedOrder) => {
-                if (updatedOrder) {
-                    res.json({
-                        message: "Order updated successfully",
-                        order: updatedOrder,
-                    });
-                } else {
-                    res.status(404).json({
-                        message: "Order not found",
-                    });
-                }
-            })
-            .catch((err) => {
-                console.error("Error updating order:", err);
-                res.status(500).json({
-                    message: "Failed to update order",
-                });
-            });
-    } else {
-        res.status(403).json({
-            message: "Access denied",
-        });
+    try {
+        const orderId = req.params.id;
+        const { status, notes } = req.body;
+
+        const [count] = await Order.update(
+            { status, notes },
+            { where: { orderId } }
+        );
+
+        if (count === 0) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        const updatedOrder = await Order.findOne({ where: { orderId } });
+        res.json({ message: "Order updated successfully", order: updatedOrder });
+    } catch (err) {
+        console.error("Error updating order:", err);
+        res.status(500).json({ message: "Failed to update order" });
     }
 };

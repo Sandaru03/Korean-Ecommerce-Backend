@@ -1,70 +1,62 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
 
-const orderSchema = new mongoose.Schema({
-    orderId: {
-        type: String,
-        required: true,
-        unique: true,
-    },
-    email: {
-        type: String,
-        required: true,
-    },
-    name: {
-        type: String,
-        required: true,
-    },
-    address: {
-        type: String,
-        required: true,
-    },
-    phone: {
-        type: String,
-        required: true,
-    },
-    status: {
-        type: String,
-        default: "pending",
-    },
-    date: {
-        type: Date,
-        default: Date.now,
-    },
-    items: [
-        {
-            productId: {
-                type: String,
-                required: true,
-            },
-            productName: {
-                type: String,
-                required: true,
-            },
-            image: {
-                type: String,
-                required: true,
-            },
-            price: {
-                type: Number,
-                required: true,
-            },
-            qty: {
-                type: Number,
-                required: true,
-            },
+const Order = sequelize.define(
+    "orders",
+    {
+        id: {
+            type: DataTypes.INTEGER,
+            autoIncrement: true,
+            primaryKey: true,
         },
-    ],
-    notes: {
-        type: String,
-        default: "no additional notes",
+        orderId: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            unique: true,
+        },
+        email: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        name: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        address: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        phone: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        status: {
+            type: DataTypes.STRING,
+            defaultValue: "pending",
+        },
+        date: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+        },
+        // Items stored as a JSON array (like MongoDB embedded docs)
+        items: {
+            type: DataTypes.JSON,
+            allowNull: false,
+            defaultValue: [],
+        },
+        notes: {
+            type: DataTypes.STRING,
+            defaultValue: "no additional notes",
+        },
+        total: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0,
+        },
     },
-    total: {
-        type: Number,
-        required: true,
-        default: 0,
-    },
-});
-
-const Order = mongoose.model("order", orderSchema);
+    {
+        timestamps: false,
+    }
+);
 
 module.exports = Order;

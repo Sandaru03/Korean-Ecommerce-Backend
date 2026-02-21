@@ -3,7 +3,7 @@ const Review = require("../models/review");
 // Get all reviews
 exports.getAllReviews = async (req, res) => {
     try {
-        const reviews = await Review.find().sort({ createdAt: -1 });
+        const reviews = await Review.findAll({ order: [["createdAt", "DESC"]] });
         res.json(reviews);
     } catch (error) {
         res.status(500).json({ message: "Failed to fetch reviews", error: error.message });
@@ -14,9 +14,9 @@ exports.getAllReviews = async (req, res) => {
 exports.deleteReview = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedReview = await Review.findByIdAndDelete(id);
+        const count = await Review.destroy({ where: { id } });
 
-        if (!deletedReview) {
+        if (count === 0) {
             return res.status(404).json({ message: "Review not found" });
         }
 
@@ -26,20 +26,18 @@ exports.deleteReview = async (req, res) => {
     }
 };
 
-// Add a review (Optional, mostly for frontend testing or user submission)
+// Add a review
 exports.addReview = async (req, res) => {
     try {
         const { productId, rating, comment } = req.body;
-        const newReview = new Review({
+        const review = await Review.create({
             productId,
             userId: req.user.userId,
             userName: req.user.firstName + " " + req.user.lastName,
             rating,
             comment,
         });
-
-        await newReview.save();
-        res.status(201).json({ message: "Review added successfully", review: newReview });
+        res.status(201).json({ message: "Review added successfully", review });
     } catch (error) {
         res.status(500).json({ message: "Failed to add review", error: error.message });
     }

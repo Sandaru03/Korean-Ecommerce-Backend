@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { Op } = require("sequelize");
 
 // helper: admin guard
 function ensureAdmin(req, res) {
@@ -12,92 +13,78 @@ function ensureAdmin(req, res) {
 }
 
 // Create User Signup
-exports.createUser = (req, res) => {
-    const passwordHash = bcrypt.hashSync(req.body.password, 10);
-
-    const userData = {
-        firstName: req.body.firstName,
-        lastName: req.body.lastName,
-        email: req.body.email,
-        password: passwordHash,
-        role: "customer",
-        phone: req.body.phone || "Not Given",
-    };
-
-    const user = new User(userData);
-
-    user
-        .save()
-        .then(() => res.json({ message: "User Created Successfully" }))
-        .catch((err) => res.status(500).json({ message: "Failed to create user", error: err.message }));
+exports.createUser = async (req, res) => {
+    try {
+        const passwordHash = bcrypt.hashSync(req.body.password, 10);
+        await User.create({
+            firstName: req.body.firstName,
+            lastName: req.body.lastName,
+            email: req.body.email,
+            password: passwordHash,
+            role: "customer",
+            phone: req.body.phone || "Not Given",
+        });
+        res.json({ message: "User Created Successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Failed to create user", error: err.message });
+    }
 };
 
 // Create Admin (Backend)
-exports.createAdmin = (req, res) => {
-    const defaultPassword = "admin123";
-    const passwordHash = bcrypt.hashSync(defaultPassword, 10);
-
-    const userData = {
-        firstName: "Admin",
-        lastName: "User",
-        email: req.body.email,
-        password: passwordHash,
-        role: "admin",
-        phone: "Not Given",
-        isEmailVerified: true,
-    };
-
-    const user = new User(userData);
-
-    user
-        .save()
-        .then(() =>
-            res.json({ message: "Admin Created Successfully with default details" })
-        )
-        .catch((error) =>
-            res.status(500).json({ message: "Failed to create admin", error: error.message })
-        );
+exports.createAdmin = async (req, res) => {
+    try {
+        const defaultPassword = "admin123";
+        const passwordHash = bcrypt.hashSync(defaultPassword, 10);
+        await User.create({
+            firstName: "Admin",
+            lastName: "User",
+            email: req.body.email,
+            password: passwordHash,
+            role: "admin",
+            phone: "Not Given",
+            isEmailVerified: true,
+        });
+        res.json({ message: "Admin Created Successfully with default details" });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to create admin", error: error.message });
+    }
 };
 
-// login Users
-exports.LoginUser = (req, res) => {
-    const { email, password } = req.body;
+// Login Users
+exports.LoginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ where: { email } });
 
-    User.findOne({ email })
-        .then((user) => {
-            if (!user) return res.status(404).json({ message: "User Not Found" });
+        if (!user) return res.status(404).json({ message: "User Not Found" });
 
-            if (user.isBlock)
-                return res
-                    .status(403)
-                    .json({ message: "Your account has been blocked. Please contact support." });
+        if (user.isBlock)
+            return res.status(403).json({ message: "Your account has been blocked. Please contact support." });
 
-            const isPasswordCorrect = bcrypt.compareSync(password, user.password);
+        const isPasswordCorrect = bcrypt.compareSync(password, user.password);
 
-            if (isPasswordCorrect) {
-                const token = jwt.sign(
-                    {
-                        email: user.email,
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                        role: user.role,
-                        isBlock: user.isBlock,
-                        isEmailVerified: user.isEmailVerified,
-                        image: user.image,
-                        userId: user._id, // Adding userId directly to token
-                    },
-                    process.env.JWT_SECRET
-                );
-
-                res.json({ token, message: "Login Successful", role: user.role });
-            } else {
-                res.status(403).json({ message: "Incorrect Password" });
-            }
-        })
-        .catch((error) => {
-            console.error(error);
-            res.status(500).json({ message: "Login Failed", error: error.message });
-        });
+        if (isPasswordCorrect) {
+            const token = jwt.sign(
+                {
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    role: user.role,
+                    isBlock: user.isBlock,
+                    isEmailVerified: user.isEmailVerified,
+                    image: user.image,
+                    userId: user.id,
+                },
+                process.env.JWT_SECRET
+            );
+            res.json({ token, message: "Login Successful", role: user.role });
+        } else {
+            res.status(403).json({ message: "Incorrect Password" });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Login Failed", error: error.message });
+    }
 };
 
 // isAdmin
@@ -106,39 +93,38 @@ exports.isAdmin = (req) => {
 };
 
 // Current user profile
-exports.getUser = (req, res) => {
+exports.getUser = async (req, res) => {
     if (!req.user?.email)
         return res.status(401).json({ message: "Unauthorized: No user data found in token" });
 
-    User.findOne({ email: req.user.email })
-        .then((user) => {
-            if (!user) return res.status(404).json({ message: "User not found in database" });
+    try {
+        const user = await User.findOne({ where: { email: req.user.email } });
+        if (!user) return res.status(404).json({ message: "User not found in database" });
 
-            res.json({
-                firstName: user.firstName || "Not Provided",
-                lastName: user.lastName || "Not Provided",
-                email: user.email || "Not Provided",
-                phone: user.phone || "Not Provided",
-                role: user.role || "customer",
-                isEmailVerified: user.isEmailVerified || false,
-                isBlock: user.isBlock || false,
-                image: user.image || null,
-                createdAt: user.createdAt,
-            });
-        })
-        .catch((error) =>
-            res.status(500).json({ message: "Failed to fetch user details", error: error.message })
-        );
+        res.json({
+            firstName: user.firstName || "Not Provided",
+            lastName: user.lastName || "Not Provided",
+            email: user.email || "Not Provided",
+            phone: user.phone || "Not Provided",
+            role: user.role || "customer",
+            isEmailVerified: user.isEmailVerified || false,
+            isBlock: user.isBlock || false,
+            image: user.image || null,
+            createdAt: user.createdAt,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch user details", error: error.message });
+    }
 };
 
 /* Customers list + Block/Unblock (Admins only) */
 exports.getCustomers = async (req, res) => {
-    // if (!ensureAdmin(req, res)) return;
-
     try {
-        const customers = await User.find({ role: "customer" })
-            .select("firstName lastName email phone role isBlock isEmailVerified createdAt")
-            .sort({ createdAt: -1 });
+        const customers = await User.findAll({
+            where: { role: "customer" },
+            attributes: ["id", "firstName", "lastName", "email", "phone", "role", "isBlock", "isEmailVerified", "createdAt"],
+            order: [["createdAt", "DESC"]],
+        });
         res.json(customers);
     } catch (error) {
         res.status(500).json({ message: "Failed to load customers", error: error.message });
@@ -146,22 +132,21 @@ exports.getCustomers = async (req, res) => {
 };
 
 exports.setCustomerBlock = async (req, res) => {
-    // if (!ensureAdmin(req, res)) return;
-
     const { email } = req.params;
     const { isBlock } = req.body;
 
     try {
-        const updated = await User.findOneAndUpdate(
-            { email, role: "customer" },
+        const [count] = await User.update(
             { isBlock: !!isBlock },
-            {
-                new: true,
-                projection: "firstName lastName email phone role isBlock isEmailVerified",
-            }
+            { where: { email, role: "customer" } }
         );
 
-        if (!updated) return res.status(404).json({ message: "Customer not found" });
+        if (count === 0) return res.status(404).json({ message: "Customer not found" });
+
+        const updated = await User.findOne({
+            where: { email },
+            attributes: ["firstName", "lastName", "email", "phone", "role", "isBlock", "isEmailVerified"],
+        });
 
         res.json({
             message: updated.isBlock ? "Customer blocked" : "Customer unblocked",

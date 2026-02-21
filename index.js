@@ -1,8 +1,10 @@
+const dotenv = require("dotenv");
+dotenv.config(); // MUST be first — loads .env before any module reads process.env
+
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const dotenv = require("dotenv");
+const sequelize = require("./config/database");
 const User = require("./models/user");
 
 // Routers
@@ -10,25 +12,16 @@ const userRouter = require("./routers/userRouter");
 const productRouter = require("./routers/productRouter");
 const orderRouter = require("./routers/orderRouter");
 const reviewRouter = require("./routers/reviewRouter");
+const uploadRouter = require("./routers/uploadRouter");
 
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json()); // Built-in body-parser
-
-// Database Connection
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-  });
+app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 // Auth Middleware (Global)
 app.use(async (req, res, next) => {
@@ -43,13 +36,14 @@ app.use(async (req, res, next) => {
 
     if (!decoded.userId && decoded.email) {
       try {
-        const u = await User.findOne({ email: decoded.email })
-          .select("_id role isBlock isEmailVerified image")
-          .lean();
+        const u = await User.findOne({
+          where: { email: decoded.email },
+          attributes: ["id", "role", "isBlock", "isEmailVerified", "image"],
+        });
         if (!u) {
           return res.status(401).json({ message: "Unauthorized: user not found" });
         }
-        decoded.userId = u._id.toString();
+        decoded.userId = u.id;
         decoded.role = u.role ?? decoded.role;
         decoded.isBlock = u.isBlock ?? decoded.isBlock;
       } catch (lookupErr) {
@@ -75,7 +69,22 @@ app.use("/users", userRouter);
 app.use("/products", productRouter);
 app.use("/orders", orderRouter);
 app.use("/reviews", reviewRouter);
+app.use("/upload", uploadRouter);
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Connect to MySQL and sync tables, then start server
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log("Connected to MySQL database");
+    return sequelize.sync({ alter: false }); // Creates tables if they don't exist
+  })
+  .then(() => {
+    console.log("Database tables synced");
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MySQL:", err.message);
+    process.exit(1);
+  });
