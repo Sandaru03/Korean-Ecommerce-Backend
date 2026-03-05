@@ -13,6 +13,7 @@ const productRouter = require("./routers/productRouter");
 const orderRouter = require("./routers/orderRouter");
 const reviewRouter = require("./routers/reviewRouter");
 const uploadRouter = require("./routers/uploadRouter");
+const categoryRouter = require("./routers/categoryRouter");
 
 
 const app = express();
@@ -70,6 +71,10 @@ app.use("/products", productRouter);
 app.use("/orders", orderRouter);
 app.use("/reviews", reviewRouter);
 app.use("/upload", uploadRouter);
+app.use("/categories", categoryRouter);
+
+// Import models here so Sequelize knows to sync them
+const Category = require("./models/category");
 
 // Connect to MySQL and sync tables, then start server
 sequelize

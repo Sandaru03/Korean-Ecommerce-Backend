@@ -48,6 +48,10 @@ const Product = sequelize.define(
             type: DataTypes.STRING,
             allowNull: false,
         },
+        subCategory: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
         isAvailable: {
             type: DataTypes.BOOLEAN,
             defaultValue: true,
