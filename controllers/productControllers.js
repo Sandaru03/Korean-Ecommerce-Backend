@@ -9,7 +9,6 @@ function normalizeProductData(raw = {}) {
     if (data.price !== undefined) data.price = Number(data.price);
     if (data.stock !== undefined) data.stock = Number(data.stock);
     if (data.subCategory === undefined) data.subCategory = "";
-    if (data.weight === undefined) data.weight = "";
 
     if (typeof data.isAvailable === "string") {
         data.isAvailable = data.isAvailable.toLowerCase() === "true";

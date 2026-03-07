@@ -40,10 +40,6 @@ const Product = sequelize.define(
             type: DataTypes.TEXT,
             allowNull: false,
         },
-        weight: {
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
         stock: {
             type: DataTypes.INTEGER,
             defaultValue: 0,
