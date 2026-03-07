@@ -14,19 +14,31 @@ const Category = sequelize.define(
             allowNull: false,
             unique: true,
         },
+        slug: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            unique: true,
+        },
         image: {
             type: DataTypes.STRING,
             allowNull: true,
         },
-        // Stored as JSON array of objects: [{ name: "Sub1", image: "url1" }, ...]
-        subcategories: {
-            type: DataTypes.JSON,
-            defaultValue: [],
+        parentId: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'categories',
+                key: 'id'
+            }
         },
     },
     {
         timestamps: true,
     }
 );
+
+// Define Association
+Category.hasMany(Category, { as: 'children', foreignKey: 'parentId' });
+Category.belongsTo(Category, { as: 'parent', foreignKey: 'parentId' });
 
 module.exports = Category;

@@ -9,6 +9,7 @@ function normalizeProductData(raw = {}) {
     if (data.price !== undefined) data.price = Number(data.price);
     if (data.stock !== undefined) data.stock = Number(data.stock);
     if (data.subCategory === undefined) data.subCategory = "";
+    if (data.weight === undefined) data.weight = "";
 
     if (typeof data.isAvailable === "string") {
         data.isAvailable = data.isAvailable.toLowerCase() === "true";
@@ -65,11 +66,14 @@ exports.getProducts = async (req, res) => {
     try {
         const includeUnavailable =
             String(req.query.includeUnavailable || "").toLowerCase() === "true";
+        const { category, subCategory } = req.query;
 
         const where = {};
         if (!isAdmin(req) && !includeUnavailable) {
             where.isAvailable = true;
         }
+        if (category) where.category = category;
+        if (subCategory) where.subCategory = subCategory;
 
         const products = await Product.findAll({ where });
         return res.json(products);

@@ -24,12 +24,12 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-// Auth Middleware (Global)
+// Auth Middleware (Global — soft: bad token = unauthenticated, not rejected)
 app.use(async (req, res, next) => {
   if (req.method === "OPTIONS") return next();
 
   const value = req.header("Authorization");
-  if (!value) return next();
+  if (!value) return next(); // No token — unauthenticated, continue
 
   const token = value.replace("Bearer ", "");
   try {
@@ -41,23 +41,23 @@ app.use(async (req, res, next) => {
           where: { email: decoded.email },
           attributes: ["id", "role", "isBlock", "isEmailVerified", "image"],
         });
-        if (!u) {
-          return res.status(401).json({ message: "Unauthorized: user not found" });
+        if (u) {
+          decoded.userId = u.id;
+          decoded.role = u.role ?? decoded.role;
+          decoded.isBlock = u.isBlock ?? decoded.isBlock;
         }
-        decoded.userId = u.id;
-        decoded.role = u.role ?? decoded.role;
-        decoded.isBlock = u.isBlock ?? decoded.isBlock;
       } catch (lookupErr) {
         console.error("Auth user lookup failed:", lookupErr.message);
-        return res.status(500).json({ message: "Auth lookup failed" });
       }
     }
 
     req.user = decoded;
     next();
   } catch (err) {
-    console.error("JWT verification error:", err.message);
-    return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
+    // Token is invalid or expired — treat as unauthenticated, do NOT block
+    // Routes that require auth will explicitly check req.user
+    console.warn("JWT soft-fail (treating as unauthenticated):", err.message);
+    next();
   }
 });
 
