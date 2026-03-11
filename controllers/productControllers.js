@@ -8,6 +8,7 @@ function normalizeProductData(raw = {}) {
     if (data.labellPrice !== undefined) data.labellPrice = Number(data.labellPrice);
     if (data.price !== undefined) data.price = Number(data.price);
     if (data.stock !== undefined) data.stock = Number(data.stock);
+    if (data.superCategory === undefined) data.superCategory = "";
     if (data.subCategory === undefined) data.subCategory = "";
 
     if (typeof data.isAvailable === "string") {
@@ -85,7 +86,10 @@ exports.getProducts = async (req, res) => {
 /* Get Single Product */
 exports.getProductInfo = async (req, res) => {
     try {
-        const product = await Product.findOne({ where: { productId: req.params.productId } });
+        const param = req.params.productId;
+        const whereClause = isNaN(param) ? { productId: param } : { id: parseInt(param, 10) };
+        
+        const product = await Product.findOne({ where: whereClause });
         if (!product) return res.status(404).json({ message: "Product not found" });
         return res.json(product);
     } catch (error) {

@@ -56,7 +56,6 @@ app.use(async (req, res, next) => {
   } catch (err) {
     // Token is invalid or expired — treat as unauthenticated, do NOT block
     // Routes that require auth will explicitly check req.user
-    console.warn("JWT soft-fail (treating as unauthenticated):", err.message);
     next();
   }
 });
@@ -72,9 +71,11 @@ app.use("/orders", orderRouter);
 app.use("/reviews", reviewRouter);
 app.use("/upload", uploadRouter);
 app.use("/categories", categoryRouter);
+app.use("/homepage-topics", require("./routers/homePageTopicRoutes"));
 
 // Import models here so Sequelize knows to sync them
 const Category = require("./models/category");
+const HomePageTopic = require("./models/homePageTopic");
 
 // Connect to MySQL and sync tables, then start server
 sequelize
@@ -83,8 +84,24 @@ sequelize
     console.log("Connected to MySQL database");
     return sequelize.sync({ alter: false }); // Creates tables if they don't exist
   })
-  .then(() => {
+  .then(async () => {
     console.log("Database tables synced");
+
+    // Seed default Home Page Topics if they don't exist
+    try {
+      const topicCount = await HomePageTopic.count();
+      if (topicCount === 0) {
+        console.log("No Home Page Topics found. Seeding defaults...");
+        await HomePageTopic.bulkCreate([
+          { title: "Today's Deals", active: true, products: [] },
+          { title: "Hot Products", active: true, products: [] },
+        ]);
+        console.log("Default Home Page Topics seeded successfully.");
+      }
+    } catch (seedErr) {
+      console.error("Error seeding default Home Page Topics:", seedErr.message);
+    }
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

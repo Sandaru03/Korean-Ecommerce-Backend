@@ -56,6 +56,10 @@ const Product = sequelize.define(
             type: DataTypes.BOOLEAN,
             defaultValue: true,
         },
+        superCategory: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
     },
     {
         timestamps: false,
