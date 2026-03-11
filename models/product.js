@@ -22,6 +22,15 @@ const Product = sequelize.define(
         altNames: {
             type: DataTypes.JSON,
             defaultValue: [],
+            get() {
+                const raw = this.getDataValue('altNames');
+                if (!raw) return [];
+                if (Array.isArray(raw)) return raw;
+                if (typeof raw === 'string') {
+                    try { return JSON.parse(raw); } catch { return []; }
+                }
+                return [];
+            },
         },
         labellPrice: {
             type: DataTypes.FLOAT,
@@ -35,6 +44,18 @@ const Product = sequelize.define(
         images: {
             type: DataTypes.JSON,
             defaultValue: ["/defult-product.jpg"],
+            get() {
+                const raw = this.getDataValue('images');
+                if (!raw) return [];
+                if (Array.isArray(raw)) return raw;
+                if (typeof raw === 'string') {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        return Array.isArray(parsed) ? parsed : [raw];
+                    } catch { return [raw]; }
+                }
+                return [];
+            },
         },
         description: {
             type: DataTypes.TEXT,

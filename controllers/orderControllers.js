@@ -33,10 +33,17 @@ exports.createOrder = async (req, res) => {
                 return res.status(400).json({ message: "Invalid product Id : " + item.productId });
             }
 
+            // Parse images safely — DB may return a JSON string instead of array
+            let productImages = product.images;
+            if (typeof productImages === "string") {
+                try { productImages = JSON.parse(productImages); } catch { productImages = [productImages]; }
+            }
+            if (!Array.isArray(productImages)) productImages = [];
+
             items.push({
                 productId: product.productId,
                 productName: product.name,
-                image: product.images[0],
+                image: productImages[0] || null,
                 price: product.price,
                 qty: item.qty,
             });

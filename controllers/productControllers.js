@@ -26,7 +26,17 @@ function normalizeProductData(raw = {}) {
     }
 
     if (!Array.isArray(data.images)) {
-        data.images = [];
+        // Try to parse if it's a JSON string (e.g., '["url1", "url2"]')
+        if (typeof data.images === "string") {
+            try {
+                const parsed = JSON.parse(data.images);
+                data.images = Array.isArray(parsed) ? parsed : [data.images];
+            } catch {
+                data.images = data.images ? [data.images] : [];
+            }
+        } else {
+            data.images = [];
+        }
     }
 
     return data;

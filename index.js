@@ -1,5 +1,24 @@
 const dotenv = require("dotenv");
 dotenv.config(); // MUST be first — loads .env before any module reads process.env
+const fs = require('fs');
+process.on('uncaughtException', (err) => {
+  fs.appendFileSync('crash.log', new Date().toISOString() + ' Uncaught Exception: ' + err.stack + '\n');
+  console.error("Uncaught Exception written to crash.log", err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  const detail = (reason instanceof Error) ? reason.stack : String(reason);
+  fs.appendFileSync('crash.log', new Date().toISOString() + ' Unhandled Rejection: ' + detail + '\n');
+  console.error("Unhandled Rejection written to crash.log", reason);
+  process.exit(1);
+});
+process.on('SIGTERM', () => {
+  fs.appendFileSync('crash.log', new Date().toISOString() + ' Process killed via SIGTERM\n');
+  process.exit(0);
+});
+process.on('exit', (code) => {
+  fs.appendFileSync('crash.log', new Date().toISOString() + ' Process exited with code: ' + code + '\n');
+});
 
 const express = require("express");
 const cors = require("cors");
