@@ -148,9 +148,14 @@ exports.deleteProduct = async (req, res) => {
 /* Search Products */
 exports.searchProducts = async (req, res) => {
     try {
-        const queryStr = req.params.query || "";
+        // Support both ?q= (from admin page) and /:query (legacy)
+        const queryStr = req.query.q || req.params.query || "";
         const includeUnavailable =
             String(req.query.includeUnavailable || "").toLowerCase() === "true";
+
+        if (!queryStr.trim()) {
+            return res.json({ success: true, products: [] });
+        }
 
         const where = {
             name: { [Op.like]: `%${queryStr}%` },
@@ -161,9 +166,9 @@ exports.searchProducts = async (req, res) => {
         }
 
         const products = await Product.findAll({ where });
-        return res.json(products);
+        return res.json({ success: true, products });
     } catch (error) {
         console.error("Error searching products:", error);
-        return res.status(500).json({ message: "Failed to search products" });
+        return res.status(500).json({ success: false, message: "Failed to search products" });
     }
 };

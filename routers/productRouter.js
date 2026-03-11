@@ -11,7 +11,7 @@ const {
 const productRouter = express.Router();
 
 productRouter.post("/", createProduct);
-productRouter.get("/search/:query", searchProducts);
+productRouter.get("/search/query", searchProducts);
 productRouter.get("/", getProducts);
 productRouter.get("/:productId", getProductInfo);
 productRouter.put("/:productId", updateProduct);

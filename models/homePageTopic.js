@@ -18,8 +18,17 @@ const HomePageTopic = sequelize.define('HomePageTopic', {
     defaultValue: true,
   },
   products: {
-    type: DataTypes.JSON, // Array of product ObjectIds (as strings) since we don't have explicit joins yet
+    type: DataTypes.JSON,
     defaultValue: [],
+    get() {
+      const raw = this.getDataValue('products');
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return []; }
+      }
+      return [];
+    },
   }
 }, {
   timestamps: true,

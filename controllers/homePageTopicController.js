@@ -1,17 +1,28 @@
 const HomePageTopic = require('../models/homePageTopic');
 const Product = require('../models/product');
+const { Op } = require('sequelize');
+
+// Helper: safely parse a JSON products field into an array of numbers
+function safeProductIds(raw) {
+    let ids = raw;
+    if (typeof ids === 'string') {
+        try { ids = JSON.parse(ids); } catch { return []; }
+    }
+    if (!Array.isArray(ids)) return [];
+    return ids.map(Number).filter(n => !isNaN(n));
+}
 
 exports.getAllTopics = async (req, res) => {
     try {
         const query = req.query.admin ? {} : { active: true };
         const topics = await HomePageTopic.findAll({ where: query });
-        
-        // Fetch products for each topic if stored as JSON array of IDs
+
+        // Fetch full product objects for each topic
         const topicsWithProducts = await Promise.all(topics.map(async (topic) => {
-            const productIds = topic.products || [];
+            const productIds = safeProductIds(topic.products);
             if (productIds.length > 0) {
                 const fetchedProducts = await Product.findAll({
-                    where: { id: productIds }
+                    where: { id: { [Op.in]: productIds } }
                 });
                 return { ...topic.toJSON(), products: fetchedProducts };
             }
@@ -48,7 +59,10 @@ exports.updateTopic = async (req, res) => {
 
         topic.title = title !== undefined ? title : topic.title;
         topic.active = active !== undefined ? active : topic.active;
-        topic.products = products !== undefined ? products : topic.products;
+        // Always store product IDs as plain integers
+        if (products !== undefined) {
+            topic.products = safeProductIds(products);
+        }
 
         await topic.save();
         res.status(200).json({ success: true, topic });
