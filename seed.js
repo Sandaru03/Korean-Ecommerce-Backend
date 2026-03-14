@@ -62,37 +62,14 @@ async function seed() {
             await Product.update({ subCategory: "Anua" }, { where: { productId: "P2" } });
         }
 
-        // Add some products if they don't exist
+        // Sample product creation removed as per user request to start fresh
+        /*
         if (prodCount === 0) {
-            const initialProds = [
-                {
-                    productId: "P1",
-                    name: "COSRX Low pH Good Morning Gel Cleanser",
-                    description: "A gentle gel cleanser",
-                    category: "Skin care",
-                    subCategory: "Cleansers",
-                    price: 12000,
-                    labellPrice: 15000,
-                    stock: 100,
-                    isAvailable: true,
-                    images: ["https://picsum.photos/seed/p1/400/400"]
-                },
-                {
-                    productId: "P2",
-                    name: "Anua Heartleaf 77% Soothing Toner",
-                    description: "Soothing toner for sensitive skin",
-                    category: "Skin care",
-                    subCategory: "Cleansers",
-                    price: 18000,
-                    labellPrice: 22000,
-                    stock: 50,
-                    isAvailable: true,
-                    images: ["https://picsum.photos/seed/p2/400/400"]
-                }
-            ];
+            const initialProds = [ ... ];
             await Product.bulkCreate(initialProds);
             console.log("Created sample products");
         }
+        */
 
         console.log("Seeding complete successfully");
         process.exit(0);
