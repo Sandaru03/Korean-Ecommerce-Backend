@@ -101,7 +101,7 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Connected to MySQL database");
-    return sequelize.sync({ alter: false }); // Creates tables if they don't exist
+    return sequelize.sync({ alter: true }); // Creates tables if they don't exist
   })
   .then(async () => {
     console.log("Database tables synced");

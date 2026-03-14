@@ -29,6 +29,10 @@ const HomePageTopic = sequelize.define('HomePageTopic', {
       }
       return [];
     },
+  },
+  bannerImage: {
+    type: DataTypes.STRING,
+    allowNull: true,
   }
 }, {
   timestamps: true,

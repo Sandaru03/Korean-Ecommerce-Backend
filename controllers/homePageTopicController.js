@@ -38,8 +38,8 @@ exports.getAllTopics = async (req, res) => {
 
 exports.createTopic = async (req, res) => {
     try {
-        const { title, active, products } = req.body;
-        const newTopic = await HomePageTopic.create({ title, active, products: products || [] });
+        const { title, active, products, bannerImage } = req.body;
+        const newTopic = await HomePageTopic.create({ title, active, products: products || [], bannerImage });
         res.status(201).json({ success: true, topic: newTopic });
     } catch (error) {
         console.error("Error creating topic:", error);
@@ -50,7 +50,7 @@ exports.createTopic = async (req, res) => {
 exports.updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, active, products } = req.body;
+        const { title, active, products, bannerImage } = req.body;
         const topic = await HomePageTopic.findByPk(id);
         
         if (!topic) {
@@ -59,6 +59,7 @@ exports.updateTopic = async (req, res) => {
 
         topic.title = title !== undefined ? title : topic.title;
         topic.active = active !== undefined ? active : topic.active;
+        topic.bannerImage = bannerImage !== undefined ? bannerImage : topic.bannerImage;
         // Always store product IDs as plain integers
         if (products !== undefined) {
             topic.products = safeProductIds(products);
