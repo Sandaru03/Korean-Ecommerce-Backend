@@ -10,8 +10,7 @@ const BannerSection = sequelize.define('BannerSection', {
     bannerId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        validate: { min: 1, max: 5 },
-        comment: 'Maps to banner 1-5 (hardcoded in frontend)',
+        comment: 'Maps to dynamic banner id',
     },
     title: {
         type: DataTypes.STRING,

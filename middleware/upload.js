@@ -23,7 +23,7 @@ const storageLocal = multer.diskStorage({
 const storageCloudinary = multer.memoryStorage();
 
 // File Filter (Images Only)
-const fileFilter = (req, file, cb) => {
+const imageFileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     } else {
@@ -31,19 +31,35 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
+// File Filter (Videos Only)
+const videoFileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('video/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Not a video! Please upload a video file.'), false);
+    }
+};
+
 const uploadLocal = multer({
     storage: storageLocal,
-    fileFilter: fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    fileFilter: imageFileFilter,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
 const uploadCloudinary = multer({
     storage: storageCloudinary,
-    fileFilter: fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    fileFilter: imageFileFilter,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
+
+const uploadVideoCloudinary = multer({
+    storage: storageCloudinary,
+    fileFilter: videoFileFilter,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
 module.exports = {
     uploadLocal,
-    uploadCloudinary
+    uploadCloudinary,
+    uploadVideoCloudinary
 };
