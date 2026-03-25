@@ -1,6 +1,5 @@
 const express = require("express");
 const {
-    createAdmin,
     createUser,
     LoginUser,
     getUser,
@@ -11,7 +10,6 @@ const {
 const userRouter = express.Router();
 
 userRouter.post("/", createUser);
-userRouter.post("/create-admin", createAdmin);
 userRouter.post("/login", LoginUser);
 
 userRouter.get("/", getUser);

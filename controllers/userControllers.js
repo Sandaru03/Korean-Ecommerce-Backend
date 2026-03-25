@@ -30,25 +30,6 @@ exports.createUser = async (req, res) => {
     }
 };
 
-// Create Admin (Backend)
-exports.createAdmin = async (req, res) => {
-    try {
-        const defaultPassword = "admin123";
-        const passwordHash = bcrypt.hashSync(defaultPassword, 10);
-        await User.create({
-            firstName: "Admin",
-            lastName: "User",
-            email: req.body.email,
-            password: passwordHash,
-            role: "admin",
-            phone: "Not Given",
-            isEmailVerified: true,
-        });
-        res.json({ message: "Admin Created Successfully with default details" });
-    } catch (error) {
-        res.status(500).json({ message: "Failed to create admin", error: error.message });
-    }
-};
 
 // Login Users
 exports.LoginUser = async (req, res) => {
