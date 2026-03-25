@@ -51,7 +51,7 @@ exports.createProduct = async (req, res) => {
 
         const data = normalizeProductData(req.body);
 
-        const required = ["productId", "name", "description", "category"];
+        const required = ["productId", "name", "description"];
         for (const key of required) {
             if (!data[key]) {
                 return res.status(400).json({ message: `Missing field: ${key}` });
