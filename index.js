@@ -37,6 +37,7 @@ const bannerRouter = require("./routers/bannerRouter");
 const bannerPageRouter = require("./routers/bannerPageRouter");
 const adBannerRouter = require("./routers/adBannerRouter");
 const reelRouter = require("./routers/reelRouter");
+const middleBannerRouter = require("./routers/middleBannerRouter");
 
 
 const app = express();
@@ -99,6 +100,7 @@ app.use("/banner-sections", bannerRouter);
 app.use("/banners", bannerPageRouter);
 app.use("/ad-banners", adBannerRouter);
 app.use("/reels", reelRouter);
+app.use("/middle-banners", middleBannerRouter);
 
 // Import models here so Sequelize knows to sync them
 const Category = require("./models/category");
@@ -107,6 +109,7 @@ const BannerSection = require("./models/bannerSection");
 const Banner = require("./models/Banner");
 const AdBanner = require("./models/AdBanner");
 const Reel = require("./models/Reel");
+const MiddleBanner = require("./models/MiddleBanner");
 
 // Connect to MySQL and sync tables, then start server
 sequelize

@@ -1,4 +1,5 @@
 const Product = require("../models/product");
+const Category = require("../models/category");
 const { isAdmin } = require("./userControllers");
 const { Op } = require("sequelize");
 
@@ -27,16 +28,23 @@ function normalizeProductData(raw = {}) {
     }
 
     if (!Array.isArray(data.images)) {
-        // Try to parse if it's a JSON string (e.g., '["url1", "url2"]')
         if (typeof data.images === "string") {
-            try {
-                const parsed = JSON.parse(data.images);
-                data.images = Array.isArray(parsed) ? parsed : [data.images];
-            } catch {
-                data.images = data.images ? [data.images] : [];
+            const trimmed = data.images.trim();
+            if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    data.images = Array.isArray(parsed) ? parsed : [parsed];
+                } catch {
+                    data.images = [trimmed];
+                }
+            } else if (trimmed.includes(",")) {
+                // Handle comma-separated list
+                data.images = trimmed.split(",").map(s => s.trim()).filter(Boolean);
+            } else {
+                data.images = trimmed ? [trimmed] : [];
             }
         } else {
-            data.images = [];
+            data.images = data.images ? [data.images] : [];
         }
     }
 
@@ -77,16 +85,38 @@ exports.getProducts = async (req, res) => {
     try {
         const includeUnavailable =
             String(req.query.includeUnavailable || "").toLowerCase() === "true";
-        const { category, subCategory } = req.query;
+        const { category, subCategory, superCategory, limit } = req.query;
 
         const where = {};
         if (!isAdmin(req) && !includeUnavailable) {
             where.isAvailable = true;
         }
-        if (category) where.category = category;
-        if (subCategory) where.subCategory = subCategory;
+        
+        if (subCategory) {
+            where.subCategory = subCategory;
+        } else if (category) {
+            where.category = category;
+        } else if (superCategory) {
+            // Find all categories that are children of this supercategory
+            const children = await Category.findAll({
+                where: { parentName: superCategory },
+                attributes: ["name"]
+            });
+            const names = children.map(c => c.name);
+            if (names.length > 0) {
+                where.category = { [Op.in]: names };
+            } else {
+                // Return empty if no categories found
+                return res.json([]);
+            }
+        }
 
-        const products = await Product.findAll({ where });
+        const options = { where };
+        
+        // Add limit if provided (useful for "randomized" feel if combined with shuffle on front)
+        if (limit) options.limit = parseInt(limit);
+
+        const products = await Product.findAll(options);
         return res.json(products);
     } catch (error) {
         console.error("Error fetching products:", error);
@@ -117,9 +147,56 @@ exports.updateProduct = async (req, res) => {
         }
 
         const productId = req.params.productId;
-        const data = normalizeProductData({ ...req.body, productId });
 
-        const [count] = await Product.update(data, { where: { productId } });
+        // Only update fields that were explicitly sent in the request body
+        // This prevents overwriting existing product data (images, altNames, etc.)
+        const rawBody = req.body;
+        const updateData = {};
+
+        // Copy only fields that are present in the body
+        const allowedFields = [
+            "name", "altNames", "description", "miniDescription", "price",
+            "labellPrice", "stock", "isAvailable", "images", "category",
+            "subCategory", "superCategory", "productId"
+        ];
+
+        for (const field of allowedFields) {
+            if (rawBody[field] !== undefined) {
+                updateData[field] = rawBody[field];
+            }
+        }
+
+        // Normalize only the fields that are being updated
+        if (updateData.labellPrice !== undefined) updateData.labellPrice = Number(updateData.labellPrice);
+        if (updateData.price !== undefined) updateData.price = Number(updateData.price);
+        if (updateData.stock !== undefined) updateData.stock = Number(updateData.stock);
+        if (typeof updateData.isAvailable === "string") {
+            updateData.isAvailable = updateData.isAvailable.toLowerCase() === "true";
+        }
+        if (typeof updateData.altNames === "string") {
+            updateData.altNames = updateData.altNames.split(",").map(s => s.trim()).filter(Boolean);
+        }
+        if (updateData.images !== undefined && !Array.isArray(updateData.images)) {
+            if (typeof updateData.images === "string") {
+                const trimmed = updateData.images.trim();
+                if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        updateData.images = Array.isArray(parsed) ? parsed : [parsed];
+                    } catch {
+                        updateData.images = [trimmed];
+                    }
+                } else if (trimmed.includes(",")) {
+                    updateData.images = trimmed.split(",").map(s => s.trim()).filter(Boolean);
+                } else {
+                    updateData.images = trimmed ? [trimmed] : [];
+                }
+            } else {
+                updateData.images = updateData.images ? [updateData.images] : [];
+            }
+        }
+
+        const [count] = await Product.update(updateData, { where: { productId } });
         if (count === 0) return res.status(404).json({ message: "Product not found" });
 
         return res.json({ message: "Product updated successfully" });
