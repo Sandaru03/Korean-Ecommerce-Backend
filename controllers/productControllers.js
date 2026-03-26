@@ -30,7 +30,9 @@ function normalizeProductData(raw = {}) {
     if (!Array.isArray(data.images)) {
         if (typeof data.images === "string") {
             const trimmed = data.images.trim();
-            if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+            if (trimmed === "[object Object]" || !trimmed) {
+                data.images = [];
+            } else if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
                 try {
                     const parsed = JSON.parse(trimmed);
                     data.images = Array.isArray(parsed) ? parsed : [parsed];
@@ -41,7 +43,7 @@ function normalizeProductData(raw = {}) {
                 // Handle comma-separated list
                 data.images = trimmed.split(",").map(s => s.trim()).filter(Boolean);
             } else {
-                data.images = trimmed ? [trimmed] : [];
+                data.images = [trimmed];
             }
         } else {
             data.images = data.images ? [data.images] : [];
@@ -97,23 +99,38 @@ exports.getProducts = async (req, res) => {
         } else if (category) {
             where.category = category;
         } else if (superCategory) {
-            // Find all categories that are children of this supercategory
-            const children = await Category.findAll({
-                where: { parentName: superCategory },
+            // 1. Find the root category object
+            const root = await Category.findOne({ where: { name: superCategory } });
+            if (!root) return res.json([]); // Not found
+
+            // 2. Find all direct children (categories)
+            const categories = await Category.findAll({
+                where: { parentId: root.id },
+                attributes: ["id", "name"]
+            });
+            const catNames = categories.map(c => c.name);
+            const catIds = categories.map(c => c.id);
+
+            // 3. Find all grandchildren (subcategories)
+            const subCategories = await Category.findAll({
+                where: { parentId: { [Op.in]: catIds } },
                 attributes: ["name"]
             });
-            const names = children.map(c => c.name);
-            if (names.length > 0) {
-                where.category = { [Op.in]: names };
-            } else {
-                // Return empty if no categories found
-                return res.json([]);
-            }
+            const subNames = subCategories.map(s => s.name);
+
+            // 4. Also check if products are directly tagged with the superCategory name
+            // (In case some are mis-tagged or directly assigned)
+            const allNames = [...new Set([superCategory, ...catNames, ...subNames])];
+
+            // 5. Match products where any category level matches
+            where[Op.or] = [
+                { superCategory: { [Op.in]: allNames } },
+                { category: { [Op.in]: allNames } },
+                { subCategory: { [Op.in]: allNames } }
+            ];
         }
 
         const options = { where };
-        
-        // Add limit if provided (useful for "randomized" feel if combined with shuffle on front)
         if (limit) options.limit = parseInt(limit);
 
         const products = await Product.findAll(options);
@@ -179,7 +196,9 @@ exports.updateProduct = async (req, res) => {
         if (updateData.images !== undefined && !Array.isArray(updateData.images)) {
             if (typeof updateData.images === "string") {
                 const trimmed = updateData.images.trim();
-                if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+                if (trimmed === "[object Object]" || !trimmed) {
+                    updateData.images = [];
+                } else if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
                     try {
                         const parsed = JSON.parse(trimmed);
                         updateData.images = Array.isArray(parsed) ? parsed : [parsed];
@@ -189,7 +208,7 @@ exports.updateProduct = async (req, res) => {
                 } else if (trimmed.includes(",")) {
                     updateData.images = trimmed.split(",").map(s => s.trim()).filter(Boolean);
                 } else {
-                    updateData.images = trimmed ? [trimmed] : [];
+                    updateData.images = [trimmed];
                 }
             } else {
                 updateData.images = updateData.images ? [updateData.images] : [];

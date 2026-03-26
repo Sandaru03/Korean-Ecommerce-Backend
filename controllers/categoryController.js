@@ -58,11 +58,18 @@ exports.getCategoryBySlug = async (req, res) => {
     try {
         const category = await Category.findOne({ 
             where: { slug: req.params.slug },
-            include: [{
-                model: Category,
-                as: 'children',
-                include: [{ model: Category, as: 'children' }]
-            }]
+            include: [
+                {
+                    model: Category,
+                    as: 'children',
+                    include: [{ model: Category, as: 'children' }]
+                },
+                {
+                    model: Category,
+                    as: 'parent',
+                    include: [{ model: Category, as: 'parent' }]
+                }
+            ]
         });
         
         if (!category) {
@@ -80,11 +87,18 @@ exports.getCategoryBySlug = async (req, res) => {
 exports.getCategoryById = async (req, res) => {
     try {
         const category = await Category.findByPk(req.params.id, {
-            include: [{
-                model: Category,
-                as: 'children',
-                include: [{ model: Category, as: 'children' }]
-            }]
+            include: [
+                {
+                    model: Category,
+                    as: 'children',
+                    include: [{ model: Category, as: 'children' }]
+                },
+                {
+                    model: Category,
+                    as: 'parent',
+                    include: [{ model: Category, as: 'parent' }]
+                }
+            ]
         });
         
         if (!category) {

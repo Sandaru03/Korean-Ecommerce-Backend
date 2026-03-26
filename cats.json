@@ -1,0 +1,182 @@
+{
+    "categories":  [
+                       {
+                           "id":  13,
+                           "name":  "test super",
+                           "slug":  "test-super",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774508503/products/d2fzfzvl78ecx2tzcnl2.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T06:56:46.000Z",
+                           "updatedAt":  "2026-03-26T07:01:42.000Z",
+                           "children":  [
+                                            {
+                                                "id":  14,
+                                                "name":  "test categories",
+                                                "slug":  "test-categories",
+                                                "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774508532/products/hul7fybusednc1k45uso.webp",
+                                                "parentId":  13,
+                                                "createdAt":  "2026-03-26T07:02:13.000Z",
+                                                "updatedAt":  "2026-03-26T07:02:13.000Z",
+                                                "children":  [
+                                                                 {
+                                                                     "id":  16,
+                                                                     "name":  "subcategories 1",
+                                                                     "slug":  "subcategories-1",
+                                                                     "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774508597/products/lejcerj5wb44klbfuo8m.webp",
+                                                                     "parentId":  14,
+                                                                     "createdAt":  "2026-03-26T07:03:17.000Z",
+                                                                     "updatedAt":  "2026-03-26T07:03:17.000Z",
+                                                                     "children":  [
+
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "id":  17,
+                                                                     "name":  "subcategories  2",
+                                                                     "slug":  "subcategories--2",
+                                                                     "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774508640/products/enqgogzbq85zhxehkfqw.webp",
+                                                                     "parentId":  14,
+                                                                     "createdAt":  "2026-03-26T07:03:45.000Z",
+                                                                     "updatedAt":  "2026-03-26T07:03:59.000Z",
+                                                                     "children":  [
+
+                                                                                  ]
+                                                                 }
+                                                             ]
+                                            },
+                                            {
+                                                "id":  28,
+                                                "name":  "test 23",
+                                                "slug":  "test-23",
+                                                "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774515973/products/uhy9hb58epindqrsnnvu.webp",
+                                                "parentId":  13,
+                                                "createdAt":  "2026-03-26T09:06:13.000Z",
+                                                "updatedAt":  "2026-03-26T09:06:13.000Z",
+                                                "children":  [
+
+                                                             ]
+                                            }
+                                        ]
+                       },
+                       {
+                           "id":  18,
+                           "name":  "test 2",
+                           "slug":  "test-2",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514514/products/j9lzxzvarha7hvgvwksk.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:41:54.000Z",
+                           "updatedAt":  "2026-03-26T08:41:54.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  19,
+                           "name":  "test 3",
+                           "slug":  "test-3",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514535/products/h0wdmlo9bkxfem3mudqh.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:42:15.000Z",
+                           "updatedAt":  "2026-03-26T08:42:15.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  20,
+                           "name":  "test 4",
+                           "slug":  "test-4",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514585/products/hhncwnadedf8hz5rgkqj.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:43:05.000Z",
+                           "updatedAt":  "2026-03-26T08:43:05.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  21,
+                           "name":  "test 5",
+                           "slug":  "test-5",
+                           "image":  null,
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:43:33.000Z",
+                           "updatedAt":  "2026-03-26T08:43:33.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  22,
+                           "name":  "test 6",
+                           "slug":  "test-6",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514649/products/hrco4lxjuxnorzgqgyyw.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:44:08.000Z",
+                           "updatedAt":  "2026-03-26T08:44:08.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  23,
+                           "name":  "test 7",
+                           "slug":  "test-7",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514662/products/ny7mqoy7is11ka19tazp.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:44:22.000Z",
+                           "updatedAt":  "2026-03-26T08:44:22.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  24,
+                           "name":  "test 8",
+                           "slug":  "test-8",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514693/products/g73nxgac2xa8nqjjdka3.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:44:52.000Z",
+                           "updatedAt":  "2026-03-26T08:44:52.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  25,
+                           "name":  "test 9",
+                           "slug":  "test-9",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514710/products/yjwffxiqcnpzesikm5ww.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:44:58.000Z",
+                           "updatedAt":  "2026-03-26T08:45:09.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  26,
+                           "name":  "10",
+                           "slug":  "10",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514725/products/kn6gmrrj783gry7dcp0w.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:45:25.000Z",
+                           "updatedAt":  "2026-03-26T08:45:25.000Z",
+                           "children":  [
+
+                                        ]
+                       },
+                       {
+                           "id":  27,
+                           "name":  "11",
+                           "slug":  "11",
+                           "image":  "https://res.cloudinary.com/dchwarwua/image/upload/v1774514737/products/nrjyiisne2albrwkmvwh.webp",
+                           "parentId":  null,
+                           "createdAt":  "2026-03-26T08:45:37.000Z",
+                           "updatedAt":  "2026-03-26T08:45:37.000Z",
+                           "children":  [
+
+                                        ]
+                       }
+                   ]
+}
