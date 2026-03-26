@@ -1,5 +1,9 @@
 const Reel = require('../models/Reel');
+const Product = require('../models/product');
 const cloudinary = require('../utils/cloudinary');
+
+// Define association
+Reel.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 const reelsController = {
   // Get all active reels (for homepage)
@@ -7,6 +11,11 @@ const reelsController = {
     try {
       const reels = await Reel.findAll({
         where: { isActive: true },
+        include: [{ 
+          model: Product, 
+          as: 'product',
+          attributes: ['id', 'name', 'price', 'labellPrice', 'images'] 
+        }],
         order: [['createdAt', 'DESC']],
       });
       res.json({ success: true, reels });
@@ -20,6 +29,11 @@ const reelsController = {
   getAllReels: async (req, res) => {
     try {
       const reels = await Reel.findAll({
+        include: [{ 
+          model: Product, 
+          as: 'product',
+          attributes: ['id', 'name', 'price', 'labellPrice', 'images'] 
+        }],
         order: [['createdAt', 'DESC']],
       });
       res.json({ success: true, reels });
@@ -29,10 +43,33 @@ const reelsController = {
     }
   },
 
+  // Get single reel by ID
+  getReelById: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const reel = await Reel.findByPk(id, {
+        include: [{ 
+          model: Product, 
+          as: 'product',
+          attributes: ['id', 'name', 'price', 'labellPrice', 'images'] 
+        }]
+      });
+
+      if (!reel) {
+        return res.status(404).json({ success: false, message: "Reel not found" });
+      }
+
+      res.json({ success: true, reel });
+    } catch (error) {
+      console.error("Error fetching reel:", error);
+      res.status(500).json({ success: false, message: "Failed to fetch reel" });
+    }
+  },
+
   // Create new reel and upload video (and optional product image) to Cloudinary
   createReel: async (req, res) => {
     try {
-      const { title, description, brandName, productName, productPrice, discountPercentage, taglines } = req.body;
+      const { title, description, brandName, productName, productPrice, discountPercentage, taglines, productId } = req.body;
 
       if (!req.files || !req.files.video) {
         return res.status(400).json({ success: false, message: "No video file provided" });
@@ -82,6 +119,7 @@ const reelsController = {
         discountPercentage,
         productImageUrl,
         taglines,
+        productId: productId || null,
         isActive: true,
       });
 
@@ -122,15 +160,43 @@ const reelsController = {
         return res.status(404).json({ success: false, message: "Reel not found" });
       }
 
-      // Optional: Delete from Cloudinary as well
-      // Extracts public_id from securely provided URL, e.g., .../upload/v1234/reels/videoName.mp4
-      // This step can be skipped for brevity, but it's good practice. We'll simply delete from DB for now.
-
       await reel.destroy();
       res.json({ success: true, message: "Reel deleted successfully" });
     } catch (error) {
       console.error("Error deleting reel:", error);
       res.status(500).json({ success: false, message: "Failed to delete reel" });
+    }
+  },
+
+  // Update reel details (title, productId)
+  updateReel: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, productId, isActive } = req.body;
+      const reel = await Reel.findByPk(id);
+
+      if (!reel) {
+        return res.status(404).json({ success: false, message: "Reel not found" });
+      }
+
+      if (title !== undefined) reel.title = title;
+      if (productId !== undefined) reel.productId = productId || null;
+      if (isActive !== undefined) reel.isActive = isActive;
+
+      await reel.save();
+
+      const updatedReel = await Reel.findByPk(id, {
+        include: [{ 
+          model: Product, 
+          as: 'product',
+          attributes: ['id', 'name', 'price', 'labellPrice', 'images'] 
+        }]
+      });
+
+      res.json({ success: true, reel: updatedReel, message: "Reel updated successfully" });
+    } catch (error) {
+      console.error("Error updating reel:", error);
+      res.status(500).json({ success: false, message: "Failed to update reel" });
     }
   },
 };

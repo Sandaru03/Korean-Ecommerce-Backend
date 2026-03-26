@@ -47,6 +47,10 @@ const Reel = sequelize.define("Reel", {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  productId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 });
 
 module.exports = Reel;

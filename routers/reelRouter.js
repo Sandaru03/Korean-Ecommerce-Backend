@@ -11,10 +11,12 @@ router.get('/active', reelsController.getActiveReels);
 
 // Admin routes
 router.get('/', reelsController.getAllReels);
+router.get('/:id', reelsController.getReelById);
 router.post('/', uploadVideoCloudinary.fields([
     { name: 'video', maxCount: 1 },
     { name: 'productImage', maxCount: 1 }
 ]), reelsController.createReel);
+router.put('/:id', reelsController.updateReel);
 router.put('/:id/toggle-status', reelsController.toggleReelStatus);
 router.delete('/:id', reelsController.deleteReel);
 
