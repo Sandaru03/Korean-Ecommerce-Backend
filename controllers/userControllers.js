@@ -137,3 +137,31 @@ exports.setCustomerBlock = async (req, res) => {
         res.status(500).json({ message: "Failed to update block status", error: error.message });
     }
 };
+
+exports.updateUser = async (req, res) => {
+    if (!req.user?.email)
+        return res.status(401).json({ message: "Unauthorized" });
+
+    const { firstName, lastName, phone } = req.body;
+
+    try {
+        const [count] = await User.update(
+            { firstName, lastName, phone },
+            { where: { email: req.user.email } }
+        );
+
+        if (count === 0) return res.status(404).json({ message: "User not found" });
+
+        const updated = await User.findOne({
+            where: { email: req.user.email },
+            attributes: ["firstName", "lastName", "email", "phone", "role", "isBlock", "isEmailVerified", "image", "createdAt"],
+        });
+
+        res.json({
+            message: "Profile updated successfully",
+            user: updated,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to update profile", error: error.message });
+    }
+};
