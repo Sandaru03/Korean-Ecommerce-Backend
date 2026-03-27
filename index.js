@@ -1,5 +1,8 @@
 const dotenv = require("dotenv");
-dotenv.config(); // MUST be first — loads .env before any module reads process.env
+console.log("====================================");
+console.log("BACKEND STARTING: " + new Date().toISOString());
+console.log("====================================");
+dotenv.config();
 const fs = require('fs');
 process.on('uncaughtException', (err) => {
   fs.appendFileSync('crash.log', new Date().toISOString() + ' Uncaught Exception: ' + err.stack + '\n');
@@ -47,6 +50,12 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+
+// Simple request logger
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 // Auth Middleware (Global — soft: bad token = unauthenticated, not rejected)
 app.use(async (req, res, next) => {
@@ -101,6 +110,10 @@ app.use("/banners", bannerPageRouter);
 app.use("/ad-banners", adBannerRouter);
 app.use("/reels", reelRouter);
 app.use("/middle-banners", middleBannerRouter);
+// Temporarily inline for debugging
+const configControllers = require("./controllers/configControllers");
+app.get("/config", configControllers.getConfig);
+app.post("/config/send-order-email", configControllers.sendOrderEmail);
 
 // Import models here so Sequelize knows to sync them
 const Category = require("./models/category");
