@@ -23,6 +23,10 @@ const Category = sequelize.define(
             type: DataTypes.STRING,
             allowNull: true,
         },
+        showInNavbar: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+        },
         parentId: {
             type: DataTypes.INTEGER,
             allowNull: true,

@@ -38,8 +38,14 @@ exports.getAllTopics = async (req, res) => {
 
 exports.createTopic = async (req, res) => {
     try {
-        const { title, active, products, bannerImage } = req.body;
-        const newTopic = await HomePageTopic.create({ title, active, products: products || [], bannerImage });
+    const { title, active, products, bannerImage, bannerImages } = req.body;
+    const newTopic = await HomePageTopic.create({ 
+        title, 
+        active, 
+        products: products || [], 
+        bannerImage, 
+        bannerImages: bannerImages || [] 
+    });
         res.status(201).json({ success: true, topic: newTopic });
     } catch (error) {
         console.error("Error creating topic:", error);
@@ -50,16 +56,17 @@ exports.createTopic = async (req, res) => {
 exports.updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, active, products, bannerImage } = req.body;
+    const { title, active, products, bannerImage, bannerImages } = req.body;
         const topic = await HomePageTopic.findByPk(id);
         
         if (!topic) {
             return res.status(404).json({ success: false, message: 'Topic not found.' });
         }
 
-        topic.title = title !== undefined ? title : topic.title;
-        topic.active = active !== undefined ? active : topic.active;
-        topic.bannerImage = bannerImage !== undefined ? bannerImage : topic.bannerImage;
+    topic.title = title !== undefined ? title : topic.title;
+    topic.active = active !== undefined ? active : topic.active;
+    topic.bannerImage = bannerImage !== undefined ? bannerImage : topic.bannerImage;
+    topic.bannerImages = bannerImages !== undefined ? bannerImages : topic.bannerImages;
         // Always store product IDs as plain integers
         if (products !== undefined) {
             topic.products = safeProductIds(products);
@@ -68,6 +75,8 @@ exports.updateTopic = async (req, res) => {
         await topic.save();
         res.status(200).json({ success: true, topic });
     } catch (error) {
+        const fs = require('fs');
+        fs.appendFileSync('crash.log', new Date().toISOString() + ' UpdateTopic Error: ' + error.stack + '\n');
         console.error("Error updating topic:", error);
         res.status(500).json({ success: false, message: 'Server error updating topic.' });
     }

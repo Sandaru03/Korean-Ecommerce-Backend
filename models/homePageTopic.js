@@ -33,6 +33,19 @@ const HomePageTopic = sequelize.define('HomePageTopic', {
   bannerImage: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  bannerImages: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+    get() {
+      const raw = this.getDataValue('bannerImages');
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return []; }
+      }
+      return [];
+    },
   }
 }, {
   timestamps: true,

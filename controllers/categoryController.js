@@ -140,6 +140,7 @@ exports.updateCategory = async (req, res) => {
             slug: slug !== undefined ? slug : category.slug,
             image: image !== undefined ? image : category.image,
             parentId: parentId !== undefined ? (parentId || null) : category.parentId,
+            showInNavbar: req.body.showInNavbar !== undefined ? req.body.showInNavbar : category.showInNavbar,
         });
 
         res.status(200).json({ message: "Category updated successfully", category });
