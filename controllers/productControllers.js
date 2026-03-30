@@ -118,16 +118,14 @@ exports.getProducts = async (req, res) => {
             });
             const subNames = subCategories.map(s => s.name);
 
-            // 4. Also check if products are directly tagged with the superCategory name
-            // (In case some are mis-tagged or directly assigned)
-            const allNames = [...new Set([superCategory, ...catNames, ...subNames])];
-
-            // 5. Match products where any category level matches
-            where[Op.or] = [
-                { superCategory: { [Op.in]: allNames } },
-                { category: { [Op.in]: allNames } },
-                { subCategory: { [Op.in]: allNames } }
-            ];
+            // 4. Match products exactly by their subCategory field belonging to one of the validated subcategories.
+            // As requested, this excludes legacy products that don't belong to a specific subcategory.
+            if (subNames.length > 0) {
+                where.subCategory = { [Op.in]: subNames };
+            } else {
+                // If there are no valid subcategories, guarantee zero product returns
+                return res.json([]);
+            }
         }
 
         const options = { where };
