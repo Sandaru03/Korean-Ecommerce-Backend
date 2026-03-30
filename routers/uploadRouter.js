@@ -52,14 +52,4 @@ router.post('/cloudinary', uploadCloudinary.array('images', 10), async (req, res
     }
 });
 
-// Local Upload Route (Static Banner/Category Images)
-router.post('/local', uploadLocal.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'No file uploaded' });
-    }
-    // Construct local URL
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.json({ message: 'Image uploaded locally', url: fileUrl });
-});
-
 module.exports = router;

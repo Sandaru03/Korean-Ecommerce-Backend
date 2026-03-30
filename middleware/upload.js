@@ -2,23 +2,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Storage for Local Uploads (Disk Storage)
-const storageLocal = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
 // Storage for Cloudinary Uploads (Memory Storage)
 const storageCloudinary = multer.memoryStorage();
 
@@ -40,12 +23,6 @@ const videoFileFilter = (req, file, cb) => {
     }
 };
 
-const uploadLocal = multer({
-    storage: storageLocal,
-    fileFilter: imageFileFilter,
-    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
-});
-
 const uploadCloudinary = multer({
     storage: storageCloudinary,
     fileFilter: imageFileFilter,
@@ -59,7 +36,6 @@ const uploadVideoCloudinary = multer({
 });
 
 module.exports = {
-    uploadLocal,
     uploadCloudinary,
     uploadVideoCloudinary
 };

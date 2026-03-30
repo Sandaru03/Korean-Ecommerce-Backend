@@ -51,6 +51,9 @@ const Reel = sequelize.define("Reel", {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
+}, {
+  tableName: "reels",
+  timestamps: true,
 });
 
 module.exports = Reel;
