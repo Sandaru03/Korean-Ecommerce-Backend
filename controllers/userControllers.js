@@ -15,18 +15,29 @@ function ensureAdmin(req, res) {
 // Create User Signup
 exports.createUser = async (req, res) => {
     try {
-        const passwordHash = bcrypt.hashSync(req.body.password, 10);
+        const { email, password, firstName, lastName, phone } = req.body;
+
+        // Check if email already exists
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ 
+                message: "Looks like you're already with us! An account with this email already exists. Try signing in instead." 
+            });
+        }
+
+        const passwordHash = bcrypt.hashSync(password, 10);
         await User.create({
-            firstName: req.body.firstName,
-            lastName: req.body.lastName,
-            email: req.body.email,
+            firstName,
+            lastName,
+            email,
             password: passwordHash,
             role: "customer",
-            phone: req.body.phone || "Not Given",
+            phone: phone || "Not Given",
         });
-        res.json({ message: "User Created Successfully" });
+        res.json({ message: "Welcome to the family! Your account has been created successfully." });
     } catch (err) {
-        res.status(500).json({ message: "Failed to create user", error: err.message });
+        console.error("Signup error:", err);
+        res.status(500).json({ message: "We encountered a small hiccup while creating your account. Please try again in a moment.", error: err.message });
     }
 };
 
