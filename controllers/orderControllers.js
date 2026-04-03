@@ -71,13 +71,21 @@ exports.createOrder = async (req, res) => {
 exports.getOrders = async (req, res) => {
     const page = parseInt(req.params.page) || 1;
     const limit = parseInt(req.params.limit) || 10;
+    const search = req.query.search || "";
 
     if (req.user == null) {
         return res.status(401).json({ message: "Please Login to view orders" });
     }
 
     try {
-        const where = req.user.role === "admin" ? {} : { email: req.user.email };
+        let where = req.user.role === "admin" ? {} : { email: req.user.email };
+
+        if (search) {
+            where = {
+                ...where,
+                orderId: { [Op.like]: `%${search}%` }
+            };
+        }
 
         const { count, rows: orders } = await Order.findAndCountAll({
             where,
