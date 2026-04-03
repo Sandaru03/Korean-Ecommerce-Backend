@@ -42,6 +42,7 @@ const adBannerRouter = require("./routers/adBannerRouter");
 const reelRouter = require("./routers/reelRouter");
 const middleBannerRouter = require("./routers/middleBannerRouter");
 const gridBannerRouter = require("./routers/gridBannerRouter");
+const timeDealRouter = require("./routers/timeDealRouter");
 
 
 const app = express();
@@ -112,6 +113,7 @@ app.use("/ad-banners", adBannerRouter);
 app.use("/reels", reelRouter);
 app.use("/middle-banners", middleBannerRouter);
 app.use("/grid-banners", gridBannerRouter);
+app.use("/time-deals", timeDealRouter);
 // Temporarily inline for debugging
 const configControllers = require("./controllers/configControllers");
 app.get("/config", configControllers.getConfig);
@@ -126,6 +128,7 @@ const AdBanner = require("./models/AdBanner");
 const Reel = require("./models/Reel");
 const MiddleBanner = require("./models/MiddleBanner");
 const GridBanner = require("./models/GridBanner");
+const TimeDeal = require("./models/TimeDeal");
 
 // Connect to MySQL and sync tables, then start server
 sequelize
