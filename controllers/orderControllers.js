@@ -72,6 +72,10 @@ exports.getOrders = async (req, res) => {
     const page = parseInt(req.params.page) || 1;
     const limit = parseInt(req.params.limit) || 10;
     const search = req.query.search || "";
+    const fromDate = req.query.fromDate || "";
+    const toDate = req.query.toDate || "";
+
+    console.log("Fetching orders with query:", { page, limit, search, fromDate, toDate });
 
     if (req.user == null) {
         return res.status(401).json({ message: "Please Login to view orders" });
@@ -81,10 +85,18 @@ exports.getOrders = async (req, res) => {
         let where = req.user.role === "admin" ? {} : { email: req.user.email };
 
         if (search) {
-            where = {
-                ...where,
-                orderId: { [Op.like]: `%${search}%` }
-            };
+            where.orderId = { [Op.like]: `%${search}%` };
+        }
+
+        if (fromDate || toDate) {
+            const dateClause = {};
+            if (fromDate) {
+                dateClause[Op.gte] = `${fromDate} 00:00:00`;
+            }
+            if (toDate) {
+                dateClause[Op.lte] = `${toDate} 23:59:59`;
+            }
+            where.date = dateClause;
         }
 
         const { count, rows: orders } = await Order.findAndCountAll({
@@ -126,5 +138,29 @@ exports.updateOrder = async (req, res) => {
     } catch (err) {
         console.error("Error updating order:", err);
         res.status(500).json({ message: "Failed to update order" });
+    }
+};
+
+exports.bulkUpdateOrders = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Access denied" });
+    }
+
+    try {
+        const { orderIds, status } = req.body;
+
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({ message: "No order IDs provided" });
+        }
+
+        const [count] = await Order.update(
+            { status },
+            { where: { orderId: { [Op.in]: orderIds } } }
+        );
+
+        res.json({ message: `${count} orders updated successfully` });
+    } catch (err) {
+        console.error("Error bulk updating orders:", err);
+        res.status(500).json({ message: "Failed to bulk update orders" });
     }
 };

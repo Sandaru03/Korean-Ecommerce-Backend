@@ -3,13 +3,15 @@ const {
     createOrder,
     getOrders,
     updateOrder,
+    bulkUpdateOrders,
 } = require("../controllers/orderControllers");
 
 const orderRouter = express.Router();
 
 orderRouter.post("/", createOrder);
-orderRouter.get("/:page/:limit", getOrders); // Handles both admin (all) and customer (mine)
+orderRouter.get("/:page/:limit", getOrders);
 orderRouter.get("/", getOrders);
-orderRouter.put("/:id", updateOrder); // Admin only status update
+orderRouter.put("/bulk/status", bulkUpdateOrders);
+orderRouter.put("/:id", updateOrder);
 
 module.exports = orderRouter;
