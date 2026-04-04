@@ -43,6 +43,7 @@ const reelRouter = require("./routers/reelRouter");
 const middleBannerRouter = require("./routers/middleBannerRouter");
 const gridBannerRouter = require("./routers/gridBannerRouter");
 const timeDealRouter = require("./routers/timeDealRouter");
+const configRouter = require("./routers/configRouter");
 
 
 const app = express();
@@ -114,10 +115,11 @@ app.use("/reels", reelRouter);
 app.use("/middle-banners", middleBannerRouter);
 app.use("/grid-banners", gridBannerRouter);
 app.use("/time-deals", timeDealRouter);
-// Temporarily inline for debugging
-const configControllers = require("./controllers/configControllers");
-app.get("/config", configControllers.getConfig);
-app.post("/config/send-order-email", configControllers.sendOrderEmail);
+app.use("/app-configs", configRouter);
+
+// Standard /config path might be blocked by some firewalls/proxies
+// Redirecting for backward compatibility if needed, but the frontend should use /app-configs
+app.get("/config", (req, res) => res.redirect("/app-configs"));
 
 // Import models here so Sequelize knows to sync them
 const Category = require("./models/category");
