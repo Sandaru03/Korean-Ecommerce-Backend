@@ -43,7 +43,7 @@ const Product = sequelize.define(
         // Stored as JSON array in MySQL
         images: {
             type: DataTypes.JSON,
-            defaultValue: ["/defult-product.jpg"],
+            defaultValue: ["/default-product.jpg"],
             get() {
                 const raw = this.getDataValue('images');
                 if (!raw) return [];
