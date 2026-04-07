@@ -4,6 +4,14 @@ const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 
 // helper: admin guard
+// middleware: admin only
+exports.adminOnly = (req, res, next) => {
+    if (!req.user || req.user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden: Admins only" });
+    }
+    next();
+};
+
 function ensureAdmin(req, res) {
     if (!req.user || req.user.role !== "admin") {
         res.status(403).json({ message: "Forbidden: Admins only" });
@@ -174,5 +182,74 @@ exports.updateUser = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: "Failed to update profile", error: error.message });
+    }
+};
+
+/* Admin Management (Admins only) */
+exports.getAllAdmins = async (req, res) => {
+    try {
+        const admins = await User.findAll({
+            where: { role: "admin" },
+            attributes: ["id", "firstName", "lastName", "email", "phone", "role", "createdAt"],
+            order: [["createdAt", "DESC"]],
+        });
+        res.json(admins);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to load admins", error: error.message });
+    }
+};
+
+exports.createAdmin = async (req, res) => {
+    try {
+        const { email, password, firstName, lastName, phone } = req.body;
+
+        // Validation
+        if (!email || !password || !firstName || !lastName) {
+            return res.status(400).json({ message: "Please provide all required fields (Name, Email, Password)." });
+        }
+
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ message: "An account with this email already exists." });
+        }
+
+        const passwordHash = bcrypt.hashSync(password, 10);
+        const newAdmin = await User.create({
+            firstName,
+            lastName,
+            email,
+            password: passwordHash,
+            role: "admin",
+            phone: phone || "Not Given",
+        });
+
+        res.json({ 
+            message: "Success! New admin account created.", 
+            admin: {
+                id: newAdmin.id,
+                email: newAdmin.email,
+                firstName: newAdmin.firstName,
+                lastName: newAdmin.lastName,
+                role: newAdmin.role
+            }
+        });
+    } catch (err) {
+        console.error("Create Admin error:", err);
+        res.status(500).json({ message: "Failed to create admin account.", error: err.message });
+    }
+};
+
+exports.deleteAdmin = async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Prevent deleting yourself if needed, but for now simple delete
+        const user = await User.findByPk(id);
+        if (!user) return res.status(404).json({ message: "Admin user not found" });
+        if (user.role !== 'admin') return res.status(400).json({ message: "This user is not an admin" });
+
+        await user.destroy();
+        res.json({ message: "Admin account removed successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to remove admin", error: error.message });
     }
 };
