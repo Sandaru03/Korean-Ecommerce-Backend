@@ -25,7 +25,8 @@ exports.createCategory = async (req, res) => {
             name,
             slug: slug || name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, ""),
             image,
-            parentId: parentId || null
+            parentId: parentId || null,
+            showInNavbar: true // Default to true for new categories
         });
 
         res.status(201).json({ message: "Category created successfully", category: newCategory });
