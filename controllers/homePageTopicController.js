@@ -1,6 +1,7 @@
 const HomePageTopic = require('../models/homePageTopic');
 const Product = require('../models/product');
 const { Op } = require('sequelize');
+const { deleteCloudinaryAsset, deleteCloudinaryImages } = require('../utils/cloudinaryHelper');
 
 // Helper: safely parse a JSON products field into an array of numbers
 function safeProductIds(raw) {
@@ -56,17 +57,32 @@ exports.createTopic = async (req, res) => {
 exports.updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
-    const { title, active, products, bannerImage, bannerImages } = req.body;
+        const { title, active, products, bannerImage, bannerImages } = req.body;
         const topic = await HomePageTopic.findByPk(id);
         
         if (!topic) {
             return res.status(404).json({ success: false, message: 'Topic not found.' });
         }
 
-    topic.title = title !== undefined ? title : topic.title;
-    topic.active = active !== undefined ? active : topic.active;
-    topic.bannerImage = bannerImage !== undefined ? bannerImage : topic.bannerImage;
-    topic.bannerImages = bannerImages !== undefined ? bannerImages : topic.bannerImages;
+        // Delete old bannerImage if it's changed or cleared
+        if (bannerImage !== undefined && bannerImage !== topic.bannerImage && topic.bannerImage) {
+            await deleteCloudinaryAsset(topic.bannerImage, 'image');
+        }
+
+        // Delete removed images from bannerImages array
+        if (bannerImages !== undefined) {
+            const oldImages = Array.isArray(topic.bannerImages) ? topic.bannerImages : [];
+            const newImages = Array.isArray(bannerImages) ? bannerImages : [];
+            const removedImages = oldImages.filter(img => !newImages.includes(img) && img);
+            if (removedImages.length > 0) {
+                await deleteCloudinaryImages(removedImages);
+            }
+        }
+
+        topic.title = title !== undefined ? title : topic.title;
+        topic.active = active !== undefined ? active : topic.active;
+        topic.bannerImage = bannerImage !== undefined ? bannerImage : topic.bannerImage;
+        topic.bannerImages = bannerImages !== undefined ? bannerImages : topic.bannerImages;
         // Always store product IDs as plain integers
         if (products !== undefined) {
             topic.products = safeProductIds(products);
@@ -85,10 +101,19 @@ exports.updateTopic = async (req, res) => {
 exports.deleteTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedTopicCount = await HomePageTopic.destroy({ where: { id } });
-        if (deletedTopicCount === 0) {
+        const topic = await HomePageTopic.findByPk(id);
+        if (!topic) {
             return res.status(404).json({ success: false, message: 'Topic not found.' });
         }
+
+        // Delete banner images from Cloudinary
+        if (topic.bannerImage) {
+            await deleteCloudinaryAsset(topic.bannerImage, 'image');
+        }
+        const extraImages = Array.isArray(topic.bannerImages) ? topic.bannerImages : [];
+        await deleteCloudinaryImages(extraImages);
+
+        await topic.destroy();
         res.status(200).json({ success: true, message: 'Topic deleted successfully.' });
     } catch (error) {
         console.error("Error deleting topic:", error);

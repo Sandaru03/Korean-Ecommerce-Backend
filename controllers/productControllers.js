@@ -2,6 +2,7 @@ const Product = require("../models/product");
 const Category = require("../models/category");
 const { isAdmin } = require("./userControllers");
 const { Op } = require("sequelize");
+const { deleteCloudinaryImages } = require("../utils/cloudinaryHelper");
 
 function normalizeProductData(raw = {}) {
     const data = { ...raw };
@@ -213,8 +214,20 @@ exports.updateProduct = async (req, res) => {
             }
         }
 
-        const [count] = await Product.update(updateData, { where: { productId } });
-        if (count === 0) return res.status(404).json({ message: "Product not found" });
+        const product = await Product.findOne({ where: { productId } });
+        if (!product) return res.status(404).json({ message: "Product not found" });
+
+        // If images are updated, delete removed images from Cloudinary
+        if (updateData.images !== undefined) {
+            const oldImages = Array.isArray(product.images) ? product.images : [];
+            const newImages = Array.isArray(updateData.images) ? updateData.images : [];
+            const removedImages = oldImages.filter(img => !newImages.includes(img) && img);
+            if (removedImages.length > 0) {
+                await deleteCloudinaryImages(removedImages);
+            }
+        }
+
+        await Product.update(updateData, { where: { productId } });
 
         return res.json({ message: "Product updated successfully" });
     } catch (error) {
@@ -230,9 +243,14 @@ exports.deleteProduct = async (req, res) => {
             return res.status(403).json({ message: "Access denied. Admin only." });
         }
 
-        const count = await Product.destroy({ where: { productId: req.params.productId } });
-        if (count === 0) return res.status(404).json({ message: "Product not found" });
+        const product = await Product.findOne({ where: { productId: req.params.productId } });
+        if (!product) return res.status(404).json({ message: "Product not found" });
 
+        // Delete all product images from Cloudinary before removing from DB
+        const images = Array.isArray(product.images) ? product.images : [];
+        await deleteCloudinaryImages(images);
+
+        await product.destroy();
         return res.json({ message: "Product deleted successfully" });
     } catch (error) {
         console.error("Error deleting product:", error);

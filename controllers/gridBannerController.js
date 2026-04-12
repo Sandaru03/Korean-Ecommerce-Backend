@@ -1,4 +1,5 @@
 const GridBanner = require("../models/GridBanner");
+const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
 
 // Initialize default banners if they don't exist
 const initBanners = async () => {
@@ -40,6 +41,11 @@ exports.updateBanner = async (req, res) => {
         const banner = await GridBanner.findByPk(id);
         if (!banner) {
             return res.status(404).json({ success: false, message: "Banner slot not found" });
+        }
+
+        // If a new image is being set, delete the old one from Cloudinary
+        if (image !== undefined && image !== banner.image && banner.image) {
+            await deleteCloudinaryAsset(banner.image, 'image');
         }
 
         banner.image = image !== undefined ? image : banner.image;

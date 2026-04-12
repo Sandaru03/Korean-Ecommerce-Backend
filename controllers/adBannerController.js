@@ -1,4 +1,5 @@
 const AdBanner = require('../models/AdBanner');
+const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
 
 // Get all ad banners (For Admin)
 exports.getAllAdBanners = async (req, res) => {
@@ -46,6 +47,11 @@ exports.updateAdBanner = async (req, res) => {
         
         if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
         
+        // Delete old image if a new one is provided or it is cleared
+        if (image !== undefined && image !== banner.image && banner.image) {
+            await deleteCloudinaryAsset(banner.image, 'image');
+        }
+
         await banner.update({ image, link, isActive, order });
         res.json({ success: true, banner });
     } catch (error) {
@@ -61,7 +67,12 @@ exports.deleteAdBanner = async (req, res) => {
         const banner = await AdBanner.findByPk(id);
         
         if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
-        
+
+        // Delete image from Cloudinary before removing DB record
+        if (banner.image) {
+            await deleteCloudinaryAsset(banner.image, 'image');
+        }
+
         await banner.destroy();
         res.json({ success: true, message: 'Banner deleted successfully' });
     } catch (error) {

@@ -1,4 +1,5 @@
 const Category = require("../models/category");
+const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
 
 // Helper to build a tree from a flat list
 const buildTree = (cats, parentId = null) => {
@@ -136,6 +137,11 @@ exports.updateCategory = async (req, res) => {
             }
         }
 
+        // Delete old image if a new one is provided or it is cleared
+        if (image !== undefined && image !== category.image && category.image) {
+            await deleteCloudinaryAsset(category.image, 'image');
+        }
+
         await category.update({
             name: name !== undefined ? name : category.name,
             slug: slug !== undefined ? slug : category.slug,
@@ -170,6 +176,16 @@ exports.deleteCategory = async (req, res) => {
         // Collect all descendant IDs (children + grandchildren)
         const childIds = (category.children || []).map(c => c.id);
         const grandchildIds = (category.children || []).flatMap(c => (c.children || []).map(g => g.id));
+
+        // Collect all images from self + descendants before deleting any records
+        const imagesToDelete = [
+            category.image,
+            ...(category.children || []).map(c => c.image),
+            ...(category.children || []).flatMap(c => (c.children || []).map(g => g.image)),
+        ].filter(Boolean);
+
+        // Delete all category images from Cloudinary
+        await Promise.all(imagesToDelete.map(url => deleteCloudinaryAsset(url, 'image')));
 
         // Delete deepest level first
         if (grandchildIds.length > 0) {

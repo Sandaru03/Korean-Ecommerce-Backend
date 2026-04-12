@@ -1,6 +1,7 @@
 const Reel = require('../models/Reel');
 const Product = require('../models/product');
 const cloudinary = require('../utils/cloudinary');
+const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
 
 // Define association
 Reel.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
@@ -158,6 +159,14 @@ const reelsController = {
 
       if (!reel) {
         return res.status(404).json({ success: false, message: "Reel not found" });
+      }
+
+      // Delete video and product image from Cloudinary before removing DB record
+      if (reel.videoUrl) {
+        await deleteCloudinaryAsset(reel.videoUrl, 'video');
+      }
+      if (reel.productImageUrl) {
+        await deleteCloudinaryAsset(reel.productImageUrl, 'image');
       }
 
       await reel.destroy();
