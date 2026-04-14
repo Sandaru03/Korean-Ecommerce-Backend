@@ -1,10 +1,12 @@
 const AdBanner = require('../models/AdBanner');
 const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
 
-// Get all ad banners (For Admin)
+// Get all ad banners (For Admin), optionally filtered by slot
 exports.getAllAdBanners = async (req, res) => {
     try {
-        const banners = await AdBanner.findAll({ order: [['order', 'ASC']] });
+        const where = {};
+        if (req.query.slot) where.slot = parseInt(req.query.slot);
+        const banners = await AdBanner.findAll({ where, order: [['order', 'ASC']] });
         res.json({ success: true, banners });
     } catch (error) {
         console.error("Error fetching ad banners:", error);
@@ -15,8 +17,9 @@ exports.getAllAdBanners = async (req, res) => {
 // Get only active ad banners (For Frontend Slider)
 exports.getActiveAdBanners = async (req, res) => {
     try {
+        const slot = parseInt(req.query.slot) || 1;
         const banners = await AdBanner.findAll({ 
-            where: { isActive: true }, 
+            where: { isActive: true, slot }, 
             order: [['order', 'ASC']] 
         });
         res.json({ success: true, banners });
@@ -29,8 +32,8 @@ exports.getActiveAdBanners = async (req, res) => {
 // Create a new ad banner
 exports.createAdBanner = async (req, res) => {
     try {
-        const { image, link, isActive, order } = req.body;
-        const banner = await AdBanner.create({ image, link, isActive, order });
+        const { image, link, isActive, order, slot } = req.body;
+        const banner = await AdBanner.create({ image, link, isActive, order, slot: slot || 1 });
         res.status(201).json({ success: true, banner });
     } catch (error) {
         console.error("Error creating ad banner:", error);
@@ -42,7 +45,7 @@ exports.createAdBanner = async (req, res) => {
 exports.updateAdBanner = async (req, res) => {
     try {
         const { id } = req.params;
-        const { image, link, isActive, order } = req.body;
+        const { image, link, isActive, order, slot } = req.body;
         const banner = await AdBanner.findByPk(id);
         
         if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
@@ -52,7 +55,7 @@ exports.updateAdBanner = async (req, res) => {
             await deleteCloudinaryAsset(banner.image, 'image');
         }
 
-        await banner.update({ image, link, isActive, order });
+        await banner.update({ image, link, isActive, order, ...(slot !== undefined && { slot }) });
         res.json({ success: true, banner });
     } catch (error) {
         console.error("Error updating ad banner:", error);

@@ -24,6 +24,11 @@ const AdBanner = sequelize.define('AdBanner', {
         type: DataTypes.INTEGER,
         defaultValue: 0,
     },
+    slot: {
+        type: DataTypes.INTEGER,
+        defaultValue: 1, // 1 = after grid banners, 2 = after 5th topic
+        allowNull: false,
+    },
 }, {
     timestamps: true,
     tableName: 'ad_banners',
