@@ -1,7 +1,6 @@
 const Reel = require('../models/Reel');
 const Product = require('../models/product');
-const cloudinary = require('../utils/cloudinary');
-const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
+const { deleteLocalFile } = require('../utils/localFileHelper');
 
 // Define association
 Reel.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
@@ -67,7 +66,7 @@ const reelsController = {
     }
   },
 
-  // Create new reel and upload video (and optional product image) to Cloudinary
+  // Create new reel — video and product image are saved to disk by Multer
   createReel: async (req, res) => {
     try {
       const { title, description, brandName, productName, productPrice, discountPercentage, taglines, productId } = req.body;
@@ -76,38 +75,17 @@ const reelsController = {
         return res.status(400).json({ success: false, message: "No video file provided" });
       }
 
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+      
       const videoFile = req.files.video[0];
       const productImageFile = req.files.productImage ? req.files.productImage[0] : null;
 
-      // Upload Video to Cloudinary
-      const videoUploadPromise = new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { resource_type: "video", folder: "reels" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result.secure_url);
-          }
-        );
-        uploadStream.end(videoFile.buffer);
-      });
-
-      // Upload Product Image to Cloudinary (if provided)
+      // Build public URLs from saved file paths
+      const videoUrl = `${baseUrl}/uploads/reels/${videoFile.filename}`;
       let productImageUrl = null;
       if (productImageFile) {
-        const imageUploadPromise = new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: "reels/products" },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result.secure_url);
-            }
-          );
-          uploadStream.end(productImageFile.buffer);
-        });
-        productImageUrl = await imageUploadPromise;
+        productImageUrl = `${baseUrl}/uploads/reels/products/${productImageFile.filename}`;
       }
-
-      const videoUrl = await videoUploadPromise;
 
       // Save to database
       const newReel = await Reel.create({
@@ -161,12 +139,12 @@ const reelsController = {
         return res.status(404).json({ success: false, message: "Reel not found" });
       }
 
-      // Delete video and product image from Cloudinary before removing DB record
+      // Delete video and product image from local storage before removing DB record
       if (reel.videoUrl) {
-        await deleteCloudinaryAsset(reel.videoUrl, 'video');
+        await deleteLocalFile(reel.videoUrl, 'video');
       }
       if (reel.productImageUrl) {
-        await deleteCloudinaryAsset(reel.productImageUrl, 'image');
+        await deleteLocalFile(reel.productImageUrl, 'image');
       }
 
       await reel.destroy();

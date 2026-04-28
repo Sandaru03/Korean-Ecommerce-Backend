@@ -1,13 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const cloudinary = require('../utils/cloudinary');
-const { uploadLocal, uploadCloudinary } = require('../middleware/upload');
 const sharp = require('sharp');
+const path = require('path');
+const fs = require('fs');
+const { uploadProductImages } = require('../middleware/upload');
 
-// Cloudinary Upload Route (Dynamic Product Images)
-// Cloudinary Upload Route (Dynamic Product Images)
-router.post('/cloudinary', uploadCloudinary.array('images', 10), async (req, res) => {
-    console.log('Cloudinary upload request received');
+// Ensure products upload directory exists
+const productsDir = path.resolve('uploads/products');
+if (!fs.existsSync(productsDir)) {
+    fs.mkdirSync(productsDir, { recursive: true });
+}
+
+// Local Upload Route (Product Images — compressed via Sharp)
+router.post('/local', uploadProductImages.array('images', 10), async (req, res) => {
+    console.log('Local upload request received');
     console.log('Files received:', req.files?.length || 0);
 
     if (!req.files || req.files.length === 0) {
@@ -15,40 +21,33 @@ router.post('/cloudinary', uploadCloudinary.array('images', 10), async (req, res
     }
 
     try {
-        const uploadPromises = req.files.map(file => {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    // Compress and resize the image using sharp to prevent upload limits
-                    const compressedBuffer = await sharp(file.buffer)
-                        .resize({ width: 1920, withoutEnlargement: true })
-                        .webp({ quality: 80 })
-                        .toBuffer();
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
 
-                    // Convert compressed buffer to base64 data URI
-                    const b64 = compressedBuffer.toString('base64');
-                    const dataUri = `data:image/webp;base64,${b64}`;
+        const urls = await Promise.all(req.files.map(async (file) => {
+            try {
+                // Compress and resize the image using sharp
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                const outputFilename = `${uniqueSuffix}.webp`;
+                const outputPath = path.join(productsDir, outputFilename);
 
-                    cloudinary.uploader.upload(dataUri, { folder: 'products' })
-                        .then(result => {
-                            console.log('Upload success:', file.originalname, '->', result.secure_url);
-                            resolve(result.secure_url);
-                        })
-                        .catch(error => {
-                            console.error('Upload failed for', file.originalname, ':', error.message);
-                            reject(error);
-                        });
-                } catch (sharpError) {
-                    console.error('Sharp processing error for', file.originalname, ':', sharpError.message);
-                    reject(sharpError);
-                }
-            });
-        });
+                await sharp(file.buffer)
+                    .resize({ width: 1920, withoutEnlargement: true })
+                    .webp({ quality: 80 })
+                    .toFile(outputPath);
 
-        const urls = await Promise.all(uploadPromises);
-        res.json({ message: 'Images uploaded successfully to Cloudinary', urls });
+                const publicUrl = `${baseUrl}/uploads/products/${outputFilename}`;
+                console.log('Upload success:', file.originalname, '->', publicUrl);
+                return publicUrl;
+            } catch (sharpError) {
+                console.error('Sharp processing error for', file.originalname, ':', sharpError.message);
+                throw sharpError;
+            }
+        }));
+
+        res.json({ message: 'Images uploaded successfully', urls });
     } catch (error) {
-        console.error('Cloudinary upload error:', error.message);
-        res.status(500).json({ message: 'Cloudinary upload failed', error: error.message });
+        console.error('Upload error:', error.message);
+        res.status(500).json({ message: 'Upload failed', error: error.message });
     }
 });
 

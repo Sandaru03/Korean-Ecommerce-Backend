@@ -1,7 +1,7 @@
 const HomePageTopic = require('../models/homePageTopic');
 const Product = require('../models/product');
 const { Op } = require('sequelize');
-const { deleteCloudinaryAsset, deleteCloudinaryImages } = require('../utils/cloudinaryHelper');
+const { deleteLocalFile, deleteLocalFiles } = require('../utils/localFileHelper');
 
 // Helper: safely parse a JSON products field into an array of numbers
 function safeProductIds(raw) {
@@ -66,7 +66,7 @@ exports.updateTopic = async (req, res) => {
 
         // Delete old bannerImage if it's changed or cleared
         if (bannerImage !== undefined && bannerImage !== topic.bannerImage && topic.bannerImage) {
-            await deleteCloudinaryAsset(topic.bannerImage, 'image');
+            await deleteLocalFile(topic.bannerImage, 'image');
         }
 
         // Delete removed images from bannerImages array
@@ -75,7 +75,7 @@ exports.updateTopic = async (req, res) => {
             const newImages = Array.isArray(bannerImages) ? bannerImages : [];
             const removedImages = oldImages.filter(img => !newImages.includes(img) && img);
             if (removedImages.length > 0) {
-                await deleteCloudinaryImages(removedImages);
+                await deleteLocalFiles(removedImages);
             }
         }
 
@@ -106,12 +106,12 @@ exports.deleteTopic = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Topic not found.' });
         }
 
-        // Delete banner images from Cloudinary
+        // Delete banner images from local storage
         if (topic.bannerImage) {
-            await deleteCloudinaryAsset(topic.bannerImage, 'image');
+            await deleteLocalFile(topic.bannerImage, 'image');
         }
         const extraImages = Array.isArray(topic.bannerImages) ? topic.bannerImages : [];
-        await deleteCloudinaryImages(extraImages);
+        await deleteLocalFiles(extraImages);
 
         await topic.destroy();
         res.status(200).json({ success: true, message: 'Topic deleted successfully.' });

@@ -1,6 +1,6 @@
 const Banner = require('../models/Banner');
 const BannerSection = require('../models/bannerSection');
-const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
+const { deleteLocalFile } = require('../utils/localFileHelper');
 
 exports.getAllBanners = async (req, res) => {
     try {
@@ -51,12 +51,12 @@ exports.updateBanner = async (req, res) => {
 
         // Delete old heroImage if a new one is provided or it is cleared
         if (heroImage !== undefined && heroImage !== banner.heroImage && banner.heroImage) {
-            await deleteCloudinaryAsset(banner.heroImage, 'image');
+            await deleteLocalFile(banner.heroImage, 'image');
         }
 
         // Delete old topBannerImage if it's changed or cleared
         if (topBannerImage !== undefined && topBannerImage !== banner.topBannerImage && banner.topBannerImage) {
-            await deleteCloudinaryAsset(banner.topBannerImage, 'image');
+            await deleteLocalFile(banner.topBannerImage, 'image');
         }
 
         await banner.update(req.body);
@@ -73,12 +73,12 @@ exports.deleteBanner = async (req, res) => {
         const banner = await Banner.findByPk(id);
         if (!banner) return res.status(404).json({ success: false, message: "Banner not found" });
 
-        // Delete banner images from Cloudinary
+        // Delete banner images from local storage
         if (banner.heroImage) {
-            await deleteCloudinaryAsset(banner.heroImage, 'image');
+            await deleteLocalFile(banner.heroImage, 'image');
         }
         if (banner.topBannerImage) {
-            await deleteCloudinaryAsset(banner.topBannerImage, 'image');
+            await deleteLocalFile(banner.topBannerImage, 'image');
         }
 
         // First delete sections associated with this banner

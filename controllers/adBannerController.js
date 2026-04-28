@@ -1,5 +1,5 @@
 const AdBanner = require('../models/AdBanner');
-const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
+const { deleteLocalFile } = require('../utils/localFileHelper');
 
 // Get all ad banners (For Admin), optionally filtered by slot
 exports.getAllAdBanners = async (req, res) => {
@@ -52,7 +52,7 @@ exports.updateAdBanner = async (req, res) => {
         
         // Delete old image if a new one is provided or it is cleared
         if (image !== undefined && image !== banner.image && banner.image) {
-            await deleteCloudinaryAsset(banner.image, 'image');
+            await deleteLocalFile(banner.image, 'image');
         }
 
         await banner.update({ image, link, isActive, order, ...(slot !== undefined && { slot }) });
@@ -71,9 +71,9 @@ exports.deleteAdBanner = async (req, res) => {
         
         if (!banner) return res.status(404).json({ success: false, message: 'Banner not found' });
 
-        // Delete image from Cloudinary before removing DB record
+        // Delete image from local storage before removing DB record
         if (banner.image) {
-            await deleteCloudinaryAsset(banner.image, 'image');
+            await deleteLocalFile(banner.image, 'image');
         }
 
         await banner.destroy();

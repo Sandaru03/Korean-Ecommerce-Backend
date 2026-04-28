@@ -1,5 +1,5 @@
 const MiddleBanner = require('../models/MiddleBanner');
-const { deleteCloudinaryAsset } = require('../utils/cloudinaryHelper');
+const { deleteLocalFile } = require('../utils/localFileHelper');
 
 exports.getMiddleBanners = async (req, res) => {
     try {
@@ -34,7 +34,7 @@ exports.updateMiddleBanner = async (req, res) => {
         const { image } = req.body;
         // Delete old image if a new one is provided or it is cleared
         if (image !== undefined && image !== banner.image && banner.image) {
-            await deleteCloudinaryAsset(banner.image, 'image');
+            await deleteLocalFile(banner.image, 'image');
         }
 
         await banner.update(req.body);
@@ -51,9 +51,9 @@ exports.deleteMiddleBanner = async (req, res) => {
         const banner = await MiddleBanner.findByPk(id);
         if (!banner) return res.status(404).json({ success: false, message: "Banner not found" });
 
-        // Delete image from Cloudinary before removing DB record
+        // Delete banner images from local storage before removing DB record
         if (banner.image) {
-            await deleteCloudinaryAsset(banner.image, 'image');
+            await deleteLocalFile(banner.image, 'image');
         }
 
         await banner.destroy();

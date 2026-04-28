@@ -2,7 +2,7 @@ const Product = require("../models/product");
 const Category = require("../models/category");
 const { isAdmin } = require("./userControllers");
 const { Op } = require("sequelize");
-const { deleteCloudinaryImages } = require("../utils/cloudinaryHelper");
+const { deleteLocalFiles } = require("../utils/localFileHelper");
 
 function normalizeProductData(raw = {}) {
     const data = { ...raw };
@@ -217,13 +217,13 @@ exports.updateProduct = async (req, res) => {
         const product = await Product.findOne({ where: { productId } });
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        // If images are updated, delete removed images from Cloudinary
+        // If images are updated, delete removed images from local storage
         if (updateData.images !== undefined) {
             const oldImages = Array.isArray(product.images) ? product.images : [];
             const newImages = Array.isArray(updateData.images) ? updateData.images : [];
             const removedImages = oldImages.filter(img => !newImages.includes(img) && img);
             if (removedImages.length > 0) {
-                await deleteCloudinaryImages(removedImages);
+                await deleteLocalFiles(removedImages);
             }
         }
 
@@ -246,9 +246,9 @@ exports.deleteProduct = async (req, res) => {
         const product = await Product.findOne({ where: { productId: req.params.productId } });
         if (!product) return res.status(404).json({ message: "Product not found" });
 
-        // Delete all product images from Cloudinary before removing from DB
+        // Delete all product images from local storage before removing from DB
         const images = Array.isArray(product.images) ? product.images : [];
-        await deleteCloudinaryImages(images);
+        await deleteLocalFiles(images);
 
         await product.destroy();
         return res.json({ message: "Product deleted successfully" });
