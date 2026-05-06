@@ -4,6 +4,6 @@ const { adminOnly } = require('../controllers/userControllers');
 const configControllers = require("../controllers/configControllers");
 
 router.get("/", configControllers.getConfig);
-router.post("/send-order-email", adminOnly, configControllers.sendOrderEmail);
+router.post("/send-order-email", configControllers.sendOrderEmail);
 
 module.exports = router;
