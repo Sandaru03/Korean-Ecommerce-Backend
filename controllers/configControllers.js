@@ -12,6 +12,7 @@ exports.getConfig = async (req, res) => {
 };
 
 exports.sendOrderEmail = async (req, res) => {
+    console.log("Received send-order-email request:", JSON.stringify(req.body, null, 2));
     const { summary, email, slipImageUrl, orderData } = req.body;
 
     // Support both legacy (summary-only) and new (orderData) formats
@@ -147,10 +148,11 @@ exports.sendOrderEmail = async (req, res) => {
             </div>`;
         } else {
             // ─── Legacy fallback (plain summary text) ───
-            plainText = summary.replace(/\*/g, "");
+            const summaryText = String(summary || "");
+            plainText = summaryText.replace(/\*/g, "");
             if (slipImageUrl) plainText += `\n\nPayment Slip: ${slipImageUrl}`;
 
-            htmlBody = `<pre style="font-family: inherit;">${summary.replace(/\*/g, "<b>").replace(/\*/g, "</b>")}</pre>`;
+            htmlBody = `<pre style="font-family: inherit;">${summaryText.replace(/\*/g, "<b>").replace(/\*/g, "</b>")}</pre>`;
             if (slipImageUrl) {
                 htmlBody += `
                     <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
@@ -171,6 +173,10 @@ exports.sendOrderEmail = async (req, res) => {
         res.json({ message: "Email sent successfully" });
     } catch (error) {
         console.error("Backend email error:", error);
-        res.status(500).json({ message: "Failed to send email via server" });
+        res.status(500).json({ 
+            message: "Failed to send email via server", 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };

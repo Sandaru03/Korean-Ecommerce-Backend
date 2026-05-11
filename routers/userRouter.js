@@ -13,6 +13,7 @@ const {
 } = require("../controllers/userControllers");
 
 const userRouter = express.Router();
+console.log("UserRouter initialized");
 
 userRouter.post("/", createUser);
 userRouter.post("/login", LoginUser);

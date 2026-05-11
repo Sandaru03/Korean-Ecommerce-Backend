@@ -47,6 +47,8 @@ const configRouter = require("./routers/configRouter");
 const sectionLabelRouter = require("./routers/sectionLabelRouter");
 const featuredStripRouter = require("./routers/featuredStripRouter");
 const flashDealRouter = require("./routers/flashDealRouter");
+const galleryReviewRouter = require("./routers/galleryReviewRouter");
+
 
 
 const app = express();
@@ -122,6 +124,8 @@ app.use("/app-configs", configRouter);
 app.use("/section-labels", sectionLabelRouter);
 app.use("/featured-strip", featuredStripRouter);
 app.use("/flash-deals", flashDealRouter);
+app.use("/gallery-reviews", galleryReviewRouter);
+
 
 // Standard /config path might be blocked by some firewalls/proxies
 // Redirecting for backward compatibility if needed, but the frontend should use /app-configs
@@ -140,6 +144,8 @@ const TimeDeal = require("./models/TimeDeal");
 const SectionLabel = require("./models/SectionLabel");
 const FeaturedStrip = require("./models/FeaturedStrip");
 const FlashDeal = require("./models/FlashDeal");
+const GalleryReview = require("./models/GalleryReview");
+
 
 // Connect to MySQL and sync tables, then start server
 sequelize
