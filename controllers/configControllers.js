@@ -29,7 +29,13 @@ exports.sendOrderEmail = async (req, res) => {
             const { name, phone, address, items, subtotal, deliveryFee, grandTotal, totalItems } = orderData;
 
             // Helper to format numbers
-            const fmt = (n) => new Intl.NumberFormat("en-IN").format(n);
+            const fmt = (n) => {
+                try {
+                    return new Intl.NumberFormat("en-IN").format(n || 0);
+                } catch (e) {
+                    return (n || 0).toLocaleString();
+                }
+            };
 
             // ── Plain text fallback ──
             plainText = `🛒 New Order\n\n`;

@@ -5,12 +5,21 @@ const nodemailer = require("nodemailer");
  * Configures a transporter using environment variables and provides a sendEmail function.
  */
 
+if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.error("CRITICAL: SMTP_USER or SMTP_PASS is missing from environment variables!");
+}
+
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: parseInt(process.env.SMTP_PORT) === 465, 
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
+    tls: {
+        rejectUnauthorized: false
+    }
 });
 
 // Verify connection configuration
@@ -28,8 +37,9 @@ transporter.verify(function (error, success) {
  * @returns {Promise} - Resolves with info if successful
  */
 const sendEmail = async (options) => {
+    const fromEmail = process.env.SMTP_USER || "noreply@sameeandsandu.com";
     const mailOptions = {
-        from: `"Samee and Sandu" <${process.env.SMTP_USER}>`,
+        from: `"Samee and Sandu" <${fromEmail}>`,
         to: options.to,
         subject: options.subject,
         text: options.text,
