@@ -95,7 +95,10 @@ exports.getProducts = async (req, res) => {
             where.isAvailable = true;
         }
         
-        if (subCategory) {
+        if (subCategory && category) {
+            where.subCategory = subCategory;
+            where.category = category;
+        } else if (subCategory) {
             where.subCategory = subCategory;
         } else if (category) {
             where.category = category;

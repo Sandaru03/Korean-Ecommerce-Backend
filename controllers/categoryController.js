@@ -16,15 +16,39 @@ exports.createCategory = async (req, res) => {
     try {
         const { name, slug, image, parentId } = req.body;
 
-        // Check if category exists
-        const existingCategory = await Category.findOne({ where: { name } });
+        // Check if category exists under the same parent
+        const existingCategory = await Category.findOne({ 
+            where: { 
+                name, 
+                parentId: parentId || null 
+            } 
+        });
         if (existingCategory) {
-            return res.status(400).json({ message: "Category with this name already exists" });
+            return res.status(400).json({ message: "A category with this name already exists under the selected parent." });
+        }
+
+        // Generate a smart slug based on name and parent
+        let finalSlug = slug || name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "");
+        if (!slug && parentId) {
+            const parentCat = await Category.findByPk(parentId);
+            if (parentCat) {
+                finalSlug = `${parentCat.slug}-${finalSlug}`;
+            }
+        }
+        
+        // Ensure slug is completely unique (for URL routing)
+        let slugExists = await Category.findOne({ where: { slug: finalSlug } });
+        let slugCounter = 1;
+        let baseSlug = finalSlug;
+        while (slugExists) {
+            finalSlug = `${baseSlug}-${slugCounter}`;
+            slugExists = await Category.findOne({ where: { slug: finalSlug } });
+            slugCounter++;
         }
 
         const newCategory = await Category.create({
             name,
-            slug: slug || name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, ""),
+            slug: finalSlug,
             image,
             parentId: parentId || null,
             showInNavbar: true // Default to true for new categories
@@ -129,12 +153,33 @@ exports.updateCategory = async (req, res) => {
             return res.status(400).json({ message: "A category cannot be its own parent" });
         }
 
-        // Check if updating name to an already existing one
-        if (name && name !== category.name) {
-            const existingCategory = await Category.findOne({ where: { name } });
-            if (existingCategory) {
-                return res.status(400).json({ message: "Category with this name already exists" });
+        const targetParentId = parentId !== undefined ? (parentId || null) : category.parentId;
+        const targetName = name !== undefined ? name : category.name;
+
+        // Check if updating name to an already existing one under the SAME parent
+        if (name !== undefined || parentId !== undefined) {
+            const existingCategory = await Category.findOne({ 
+                where: { 
+                    name: targetName, 
+                    parentId: targetParentId 
+                } 
+            });
+            if (existingCategory && existingCategory.id !== parseInt(id)) {
+                return res.status(400).json({ message: "A category with this name already exists under the selected parent." });
             }
+        }
+
+        // Handle slug updates
+        let finalSlug = slug !== undefined ? slug : category.slug;
+        if (slug !== undefined && slug !== category.slug) {
+             let slugExists = await Category.findOne({ where: { slug: finalSlug } });
+             let slugCounter = 1;
+             let baseSlug = finalSlug;
+             while (slugExists && slugExists.id !== parseInt(id)) {
+                 finalSlug = `${baseSlug}-${slugCounter}`;
+                 slugExists = await Category.findOne({ where: { slug: finalSlug } });
+                 slugCounter++;
+             }
         }
 
         // Delete old image if a new one is provided or it is cleared
@@ -143,10 +188,10 @@ exports.updateCategory = async (req, res) => {
         }
 
         await category.update({
-            name: name !== undefined ? name : category.name,
-            slug: slug !== undefined ? slug : category.slug,
+            name: targetName,
+            slug: finalSlug,
             image: image !== undefined ? image : category.image,
-            parentId: parentId !== undefined ? (parentId || null) : category.parentId,
+            parentId: targetParentId,
             showInNavbar: req.body.showInNavbar !== undefined ? req.body.showInNavbar : category.showInNavbar,
         });
 
