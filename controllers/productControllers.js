@@ -271,7 +271,10 @@ exports.searchProducts = async (req, res) => {
         }
 
         const where = {
-            name: { [Op.like]: `%${queryStr}%` },
+            [Op.or]: [
+                { name: { [Op.like]: `%${queryStr}%` } },
+                { productId: { [Op.like]: `%${queryStr}%` } }
+            ]
         };
 
         if (!isAdmin(req) && !includeUnavailable) {
