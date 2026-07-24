@@ -49,6 +49,7 @@ const featuredStripRouter = require("./routers/featuredStripRouter");
 const flashDealRouter = require("./routers/flashDealRouter");
 const galleryReviewRouter = require("./routers/galleryReviewRouter");
 const productRequestRouter = require("./routers/productRequestRouter");
+const quizBannerRouter = require("./routers/quizBannerRouter");
 
 
 
@@ -127,6 +128,7 @@ app.use("/featured-strip", featuredStripRouter);
 app.use("/flash-deals", flashDealRouter);
 app.use("/gallery-reviews", galleryReviewRouter);
 app.use("/product-requests", productRequestRouter);
+app.use("/quiz-banner", quizBannerRouter);
 
 
 // Standard /config path might be blocked by some firewalls/proxies
@@ -148,6 +150,7 @@ const FeaturedStrip = require("./models/FeaturedStrip");
 const FlashDeal = require("./models/FlashDeal");
 const GalleryReview = require("./models/GalleryReview");
 const ProductRequest = require("./models/ProductRequest");
+const QuizBannerConfig = require("./models/QuizBannerConfig");
 
 
 // Connect to MySQL and sync tables, then start server
