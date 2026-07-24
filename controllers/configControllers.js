@@ -170,13 +170,14 @@ exports.sendOrderEmail = async (req, res) => {
             }
         }
 
-        await sendEmail({
-            to: process.env.ORDER_EMAIL || "orders@yourbusiness.com",
-            subject: "🛒 New Order — Samee and Sandu",
-            text: plainText,
-            html: htmlBody
-        });
-        res.json({ message: "Email sent successfully" });
+        // Email sending is temporarily disabled
+        // await sendEmail({
+        //     to: process.env.ORDER_EMAIL || "orders@yourbusiness.com",
+        //     subject: "🛒 New Order — Samee and Sandu",
+        //     text: plainText,
+        //     html: htmlBody
+        // });
+        res.json({ message: "Order processed successfully (Emails disabled)" });
     } catch (error) {
         console.error("Backend email error:", error);
         res.status(500).json({ 
