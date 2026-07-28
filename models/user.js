@@ -42,6 +42,26 @@ const User = sequelize.define(
             type: DataTypes.BOOLEAN,
             defaultValue: false,
         },
+        addressLine: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+        apartment: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+        city: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+        postalCode: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+        country: {
+            type: DataTypes.STRING,
+            defaultValue: "Sri Lanka",
+        },
         image: {
             type: DataTypes.STRING,
             defaultValue: null,
