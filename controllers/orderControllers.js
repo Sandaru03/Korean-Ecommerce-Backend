@@ -2,6 +2,101 @@ const Order = require("../models/order");
 const Product = require("../models/product");
 const { isAdmin } = require("./userControllers");
 const { Op } = require("sequelize");
+const { sendEmail } = require("../utils/mailer");
+
+const sendPaymentConfirmation = async (order) => {
+    try {
+        if (!order.email) return;
+
+        let orderLinesHtml = "";
+        let orderLinesText = "";
+
+        let parsedItems = [];
+        if (order.items) {
+            parsedItems = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
+        }
+
+        if (Array.isArray(parsedItems)) {
+            for (const item of parsedItems) {
+                const itemTotal = item.price * item.qty;
+                orderLinesText += `• ${item.productName} x${item.qty} — LKR ${itemTotal.toLocaleString()}\n`;
+                orderLinesHtml += `
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee;">
+                            <p style="margin: 0; font-weight: bold; color: #111;">${item.productName}</p>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #666;">Qty: ${item.qty}</p>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #111;">
+                            LKR ${itemTotal.toLocaleString()}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        const plainText = `🛒 Payment Confirmed!
+
+Hello ${order.name},
+
+Great news! Your payment for order ${order.orderId} has been confirmed. We are now processing your order.
+
+Order Details:
+${orderLinesText}
+Total: LKR ${Number(order.total || 0).toLocaleString()}
+
+Address: ${order.address}
+
+Thank you for shopping with Samee and Sandu!`;
+
+        const htmlBody = `
+            <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e9ecef; border-radius: 12px; overflow: hidden; background-color: #fff;">
+                <div style="background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); padding: 32px 24px; text-align: center;">
+                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">Payment Confirmed! 🎉</h1>
+                </div>
+                
+                <div style="padding: 32px 24px;">
+                    <p style="color: #333; font-size: 16px; line-height: 1.6; margin-top: 0;">Hello <strong>${order.name}</strong>,</p>
+                    <p style="color: #555; font-size: 15px; line-height: 1.6;">Great news! We have successfully received your payment for order <strong>${order.orderId}</strong>. We're now processing your items.</p>
+                    
+                    <div style="margin-top: 32px; background: #f8f9fa; border-radius: 12px; padding: 24px;">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111; border-bottom: 2px solid #eee; padding-bottom: 12px;">Order Summary</h2>
+                        
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tbody>
+                                ${orderLinesHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td style="padding: 16px 12px 0 12px; text-align: right; font-weight: bold; color: #555; font-size: 16px;">Total:</td>
+                                    <td style="padding: 16px 12px 0 12px; text-align: right; font-weight: 900; color: #111; font-size: 20px;">LKR ${Number(order.total || 0).toLocaleString()}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 24px;">
+                        <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Delivery Address</h3>
+                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">${order.address}</p>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px 32px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #999;">Thank you for shopping with Samee and Sandu</p>
+                </div>
+            </div>
+        `;
+
+        await sendEmail({
+            to: order.email,
+            subject: "✅ Payment Confirmed — Samee and Sandu",
+            text: plainText,
+            html: htmlBody
+        });
+        console.log(`Payment confirmation email sent for order ${order.orderId}`);
+    } catch (error) {
+        console.error("Error sending payment confirmation email:", error);
+    }
+};
 
 exports.createOrder = async (req, res) => {
     try {
@@ -124,6 +219,11 @@ exports.updateOrder = async (req, res) => {
         const orderId = req.params.id;
         const { status, notes } = req.body;
 
+        const previousOrder = await Order.findOne({ where: { orderId } });
+        if (!previousOrder) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
         const [count] = await Order.update(
             { status, notes },
             { where: { orderId } }
@@ -134,6 +234,11 @@ exports.updateOrder = async (req, res) => {
         }
 
         const updatedOrder = await Order.findOne({ where: { orderId } });
+        
+        if (status === "payment_completed" && previousOrder.status !== "payment_completed") {
+            await sendPaymentConfirmation(updatedOrder);
+        }
+
         res.json({ message: "Order updated successfully", order: updatedOrder });
     } catch (err) {
         console.error("Error updating order:", err);
@@ -153,10 +258,26 @@ exports.bulkUpdateOrders = async (req, res) => {
             return res.status(400).json({ message: "No order IDs provided" });
         }
 
+        let ordersToEmail = [];
+        if (status === "payment_completed") {
+            ordersToEmail = await Order.findAll({
+                where: { 
+                    orderId: { [Op.in]: orderIds },
+                    status: { [Op.ne]: "payment_completed" }
+                }
+            });
+        }
+
         const [count] = await Order.update(
             { status },
             { where: { orderId: { [Op.in]: orderIds } } }
         );
+
+        if (status === "payment_completed" && ordersToEmail.length > 0) {
+            for (const order of ordersToEmail) {
+                await sendPaymentConfirmation(order);
+            }
+        }
 
         res.json({ message: `${count} orders updated successfully` });
     } catch (err) {

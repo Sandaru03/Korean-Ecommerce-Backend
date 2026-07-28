@@ -170,14 +170,29 @@ exports.sendOrderEmail = async (req, res) => {
             }
         }
 
-        // Email sending is temporarily disabled
-        // await sendEmail({
-        //     to: process.env.ORDER_EMAIL || "orders@yourbusiness.com",
-        //     subject: "🛒 New Order — Samee and Sandu",
-        //     text: plainText,
-        //     html: htmlBody
-        // });
-        res.json({ message: "Order processed successfully (Emails disabled)" });
+        // Send to Site Owner
+        await sendEmail({
+            to: process.env.ORDER_EMAIL || "orders@yourbusiness.com",
+            subject: "🛒 New Order — Samee and Sandu",
+            text: plainText,
+            html: htmlBody
+        });
+
+        // Send Confirmation to Customer
+        if (email) {
+            try {
+                await sendEmail({
+                    to: email,
+                    subject: "🛒 Order Confirmation — Samee and Sandu",
+                    text: plainText,
+                    html: htmlBody
+                });
+            } catch (customerErr) {
+                console.error("Failed to send customer confirmation email:", customerErr);
+            }
+        }
+
+        res.json({ message: "Order processed and emails sent successfully" });
     } catch (error) {
         console.error("Backend email error:", error);
         res.status(500).json({ 
