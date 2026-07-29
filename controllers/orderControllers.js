@@ -4,6 +4,95 @@ const { isAdmin } = require("./userControllers");
 const { Op } = require("sequelize");
 const { sendEmail } = require("../utils/mailer");
 
+const sendBankTransferPendingEmail = async (order) => {
+    try {
+        if (!order.email) return;
+
+        let orderLinesHtml = "";
+        let orderLinesText = "";
+
+        let parsedItems = [];
+        if (order.items) {
+            parsedItems = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
+        }
+
+        if (Array.isArray(parsedItems)) {
+            for (const item of parsedItems) {
+                const itemTotal = item.price * item.qty;
+                orderLinesText += `• ${item.productName} x${item.qty} — LKR ${itemTotal.toLocaleString()}\n`;
+                orderLinesHtml += `
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee;">
+                            <p style="margin: 0; font-weight: bold; color: #111;">${item.productName}</p>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #666;">Qty: ${item.qty}</p>
+                        </td>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #111;">
+                            LKR ${itemTotal.toLocaleString()}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        const plainText = `⏳ Order Pending Bank Transfer Verification\n\nHello ${order.name},\n\nYour order ${order.orderId} has been placed successfully. We are currently checking your bank transfer. Your order will be fully processed and a confirmation email will be sent as soon as it is approved.\n\nOrder Details:\n${orderLinesText}\nTotal: LKR ${Number(order.total || 0).toLocaleString()}\n\nAddress: ${order.address}\n\nNeed Help?\nWhatsApp: ${process.env.WHATSAPP_NUMBER || "Not available"}\nEmail: ${process.env.ORDER_EMAIL || "Not available"}\n\nThank you for shopping with Samee and Sandu!`;
+
+        const htmlBody = `
+            <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e9ecef; border-radius: 12px; overflow: hidden; background-color: #fff;">
+                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 24px; text-align: center;">
+                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">Order Pending Verification ⏳</h1>
+                </div>
+                
+                <div style="padding: 32px 24px;">
+                    <p style="color: #333; font-size: 16px; line-height: 1.6; margin-top: 0;">Hello <strong>${order.name}</strong>,</p>
+                    <p style="color: #555; font-size: 15px; line-height: 1.6;">Your order <strong>${order.orderId}</strong> has been placed successfully! We are currently verifying your bank transfer. Your order will be fully processed and a confirmation email will be sent as soon as the transfer is approved.</p>
+                    
+                    <div style="margin-top: 32px; background: #f8f9fa; border-radius: 12px; padding: 24px;">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111; border-bottom: 2px solid #eee; padding-bottom: 12px;">Order Summary</h2>
+                        
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tbody>
+                                ${orderLinesHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td style="padding: 16px 12px 0 12px; text-align: right; font-weight: bold; color: #555; font-size: 16px;">Total:</td>
+                                    <td style="padding: 16px 12px 0 12px; text-align: right; font-weight: 900; color: #111; font-size: 20px;">LKR ${Number(order.total || 0).toLocaleString()}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 24px;">
+                        <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Delivery Address</h3>
+                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">${order.address}</p>
+                    </div>
+
+                    <div style="margin-top: 32px; background: #fff8f1; border-radius: 12px; padding: 24px; border: 1px solid #ffedd5;">
+                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #9a3412;">Need Help?</h3>
+                        <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">If you have any questions about your order, please contact us:</p>
+                        <p style="margin: 0 0 4px 0; color: #333; font-size: 14px;"><strong>WhatsApp:</strong> ${process.env.WHATSAPP_NUMBER || "Not available"}</p>
+                        <p style="margin: 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${process.env.ORDER_EMAIL || "Not available"}</p>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px 32px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #999;">Thank you for shopping with Samee and Sandu</p>
+                </div>
+            </div>
+        `;
+
+        await sendEmail({
+            to: order.email,
+            subject: "Order Pending Bank Transfer — Samee and Sandu",
+            text: plainText,
+            html: htmlBody
+        });
+        console.log(`Pending bank transfer email sent for order ${order.orderId}`);
+    } catch (error) {
+        console.error("Error sending pending bank transfer email:", error);
+    }
+};
+
 const sendPaymentConfirmation = async (order) => {
     try {
         if (!order.email) return;
@@ -46,6 +135,10 @@ Total: LKR ${Number(order.total || 0).toLocaleString()}
 
 Address: ${order.address}
 
+Need Help?
+WhatsApp: ${process.env.WHATSAPP_NUMBER || "Not available"}
+Email: ${process.env.ORDER_EMAIL || "Not available"}
+
 Thank you for shopping with Samee and Sandu!`;
 
         const htmlBody = `
@@ -78,6 +171,13 @@ Thank you for shopping with Samee and Sandu!`;
                         <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Delivery Address</h3>
                         <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">${order.address}</p>
                     </div>
+
+                    <div style="margin-top: 32px; background: #eff6ff; border-radius: 12px; padding: 24px; border: 1px solid #dbeafe;">
+                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #1e40af;">Need Help?</h3>
+                        <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">If you have any questions about your order, please contact us:</p>
+                        <p style="margin: 0 0 4px 0; color: #333; font-size: 14px;"><strong>WhatsApp:</strong> ${process.env.WHATSAPP_NUMBER || "Not available"}</p>
+                        <p style="margin: 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${process.env.ORDER_EMAIL || "Not available"}</p>
+                    </div>
                 </div>
                 
                 <div style="padding: 20px 32px; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center;">
@@ -88,7 +188,7 @@ Thank you for shopping with Samee and Sandu!`;
 
         await sendEmail({
             to: order.email,
-            subject: "✅ Payment Confirmed — Samee and Sandu",
+            subject: "Payment Confirmed — Samee and Sandu",
             text: plainText,
             html: htmlBody
         });
@@ -148,13 +248,17 @@ exports.createOrder = async (req, res) => {
 
         const newOrder = await Order.create({
             orderId,
-            email: req.user.email,
-            name: req.user.firstName + " " + req.user.lastName,
+            email: req.body.email || req.user.email,
+            name: (req.body.firstName && req.body.lastName) ? (req.body.firstName + " " + req.body.lastName) : (req.user.firstName + " " + req.user.lastName),
             address: req.body.address,
             phone: req.body.phone,
             items,
             total,
         });
+
+        if (req.body.paymentMethod === 'bank') {
+            await sendBankTransferPendingEmail(newOrder);
+        }
 
         res.json({ message: "Order Created Successfully", result: newOrder });
     } catch (error) {
