@@ -46,6 +46,19 @@ const HomePageTopic = sequelize.define('HomePageTopic', {
       }
       return [];
     },
+  },
+  mobileBannerImages: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+    get() {
+      const raw = this.getDataValue('mobileBannerImages');
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return []; }
+      }
+      return [];
+    },
   }
 }, {
   timestamps: true,

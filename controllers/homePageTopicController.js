@@ -39,14 +39,15 @@ exports.getAllTopics = async (req, res) => {
 
 exports.createTopic = async (req, res) => {
     try {
-    const { title, active, products, bannerImage, bannerImages } = req.body;
-    const newTopic = await HomePageTopic.create({ 
-        title, 
-        active, 
-        products: products || [], 
-        bannerImage, 
-        bannerImages: bannerImages || [] 
-    });
+        const { title, active, products, bannerImage, bannerImages, mobileBannerImages } = req.body;
+        const newTopic = await HomePageTopic.create({ 
+            title, 
+            active, 
+            products: products || [], 
+            bannerImage, 
+            bannerImages: bannerImages || [],
+            mobileBannerImages: mobileBannerImages || []
+        });
         res.status(201).json({ success: true, topic: newTopic });
     } catch (error) {
         console.error("Error creating topic:", error);
@@ -57,7 +58,7 @@ exports.createTopic = async (req, res) => {
 exports.updateTopic = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, active, products, bannerImage, bannerImages } = req.body;
+        const { title, active, products, bannerImage, bannerImages, mobileBannerImages } = req.body;
         const topic = await HomePageTopic.findByPk(id);
         
         if (!topic) {
@@ -69,7 +70,7 @@ exports.updateTopic = async (req, res) => {
             await deleteLocalFile(topic.bannerImage, 'image');
         }
 
-        // Delete removed images from bannerImages array
+        // Delete removed images from bannerImages array (desktop)
         if (bannerImages !== undefined) {
             const oldImages = Array.isArray(topic.bannerImages) ? topic.bannerImages : [];
             const newImages = Array.isArray(bannerImages) ? bannerImages : [];
@@ -79,10 +80,21 @@ exports.updateTopic = async (req, res) => {
             }
         }
 
+        // Delete removed images from mobileBannerImages array
+        if (mobileBannerImages !== undefined) {
+            const oldMobileImages = Array.isArray(topic.mobileBannerImages) ? topic.mobileBannerImages : [];
+            const newMobileImages = Array.isArray(mobileBannerImages) ? mobileBannerImages : [];
+            const removedMobileImages = oldMobileImages.filter(img => !newMobileImages.includes(img) && img);
+            if (removedMobileImages.length > 0) {
+                await deleteLocalFiles(removedMobileImages);
+            }
+        }
+
         topic.title = title !== undefined ? title : topic.title;
         topic.active = active !== undefined ? active : topic.active;
         topic.bannerImage = bannerImage !== undefined ? bannerImage : topic.bannerImage;
         topic.bannerImages = bannerImages !== undefined ? bannerImages : topic.bannerImages;
+        topic.mobileBannerImages = mobileBannerImages !== undefined ? mobileBannerImages : topic.mobileBannerImages;
         // Always store product IDs as plain integers
         if (products !== undefined) {
             topic.products = safeProductIds(products);
@@ -112,6 +124,9 @@ exports.deleteTopic = async (req, res) => {
         }
         const extraImages = Array.isArray(topic.bannerImages) ? topic.bannerImages : [];
         await deleteLocalFiles(extraImages);
+
+        const extraMobileImages = Array.isArray(topic.mobileBannerImages) ? topic.mobileBannerImages : [];
+        await deleteLocalFiles(extraMobileImages);
 
         await topic.destroy();
         res.status(200).json({ success: true, message: 'Topic deleted successfully.' });
