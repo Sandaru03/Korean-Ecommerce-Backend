@@ -26,6 +26,16 @@ const Order = sequelize.define(
             type: DataTypes.STRING,
             allowNull: false,
         },
+        country: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            defaultValue: "Sri Lanka",
+        },
+        postalCode: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue: null,
+        },
         phone: {
             type: DataTypes.STRING,
             allowNull: false,

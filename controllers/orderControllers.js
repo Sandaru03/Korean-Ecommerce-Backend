@@ -253,11 +253,16 @@ exports.createOrder = async (req, res) => {
         const deliveryFee = (total > 0 && total < 20000) ? 400 : 0;
         const grandTotal = total + deliveryFee;
 
+        const country = req.body.country || "Sri Lanka";
+        const postalCode = req.body.postalCode || null;
+
         const newOrder = await Order.create({
             orderId,
             email: req.body.email || req.user.email,
             name: (req.body.firstName && req.body.lastName) ? (req.body.firstName + " " + req.body.lastName) : (req.user.firstName + " " + req.user.lastName),
             address: req.body.address,
+            country,
+            postalCode,
             phone: req.body.phone,
             secondaryPhone: req.body.secondaryPhone || null,
             items,
@@ -281,8 +286,9 @@ exports.getOrders = async (req, res) => {
     const search = req.query.search || "";
     const fromDate = req.query.fromDate || "";
     const toDate = req.query.toDate || "";
+    const destination = req.query.destination || "all"; // 'all' | 'srilanka' | 'international'
 
-    console.log("Fetching orders with query:", { page, limit, search, fromDate, toDate });
+    console.log("Fetching orders with query:", { page, limit, search, fromDate, toDate, destination });
 
     if (req.user == null) {
         return res.status(401).json({ message: "Please Login to view orders" });
@@ -290,9 +296,35 @@ exports.getOrders = async (req, res) => {
 
     try {
         let where = req.user.role === "admin" ? {} : { email: req.user.email };
+        const andConditions = [];
 
         if (search) {
-            where.orderId = { [Op.like]: `%${search}%` };
+            andConditions.push({
+                [Op.or]: [
+                    { orderId: { [Op.like]: `%${search}%` } },
+                    { name: { [Op.like]: `%${search}%` } },
+                    { phone: { [Op.like]: `%${search}%` } },
+                    { country: { [Op.like]: `%${search}%` } }
+                ]
+            });
+        }
+
+        if (destination === "srilanka") {
+            andConditions.push({
+                [Op.or]: [
+                    { country: "Sri Lanka" },
+                    { country: { [Op.like]: "%Sri Lanka%" } }
+                ]
+            });
+        } else if (destination === "international") {
+            andConditions.push({
+                country: {
+                    [Op.and]: [
+                        { [Op.ne]: "Sri Lanka" },
+                        { [Op.notLike]: "%Sri Lanka%" }
+                    ]
+                }
+            });
         }
 
         if (fromDate || toDate) {
@@ -303,7 +335,11 @@ exports.getOrders = async (req, res) => {
             if (toDate) {
                 dateClause[Op.lte] = `${toDate} 23:59:59`;
             }
-            where.date = dateClause;
+            andConditions.push({ date: dateClause });
+        }
+
+        if (andConditions.length > 0) {
+            where[Op.and] = andConditions;
         }
 
         const { count, rows: orders } = await Order.findAndCountAll({
@@ -318,6 +354,7 @@ exports.getOrders = async (req, res) => {
             totalPages: Math.ceil(count / limit),
         });
     } catch (err) {
+        console.error("Failed to fetch orders:", err);
         res.status(500).json({ message: "Failed to fetch orders" });
     }
 };

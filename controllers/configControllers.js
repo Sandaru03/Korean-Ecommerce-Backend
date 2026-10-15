@@ -26,7 +26,7 @@ exports.sendOrderEmail = async (req, res) => {
 
         if (orderData) {
             // ─── New rich email with product images ───
-            const { name, phone, secondaryPhone, address, items, subtotal, deliveryFee, grandTotal, totalItems } = orderData;
+            const { name, phone, secondaryPhone, address, country, postalCode, items, subtotal, deliveryFee, grandTotal, totalItems } = orderData;
 
             // Helper to format numbers
             const fmt = (n) => {
@@ -41,6 +41,7 @@ exports.sendOrderEmail = async (req, res) => {
             plainText = `🛒 New Order\n\n`;
             plainText += `Name: ${name || "—"}\n`;
             plainText += `Phone: ${phone || "—"}${secondaryPhone ? ` / ${secondaryPhone}` : ""}\n`;
+            plainText += `Destination: ${country || "Sri Lanka"}${postalCode ? ` (Postal: ${postalCode})` : ""}\n`;
             plainText += `Address: ${address || "—"}\n\n`;
             plainText += `Items:\n`;
             (items || []).forEach(item => {
@@ -109,6 +110,10 @@ exports.sendOrderEmail = async (req, res) => {
                             <tr>
                                 <td style="padding:6px 0;font-size:13px;color:#777;vertical-align:top;">Phone</td>
                                 <td style="padding:6px 0;font-size:14px;font-weight:700;color:#111;">${phone || "—"}${secondaryPhone ? ` / ${secondaryPhone}` : ""}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:6px 0;font-size:13px;color:#777;vertical-align:top;">Destination</td>
+                                <td style="padding:6px 0;font-size:14px;font-weight:700;color:#111;">${country || "Sri Lanka"}${postalCode ? ` (Postal: ${postalCode})` : ""}</td>
                             </tr>
                             <tr>
                                 <td style="padding:6px 0;font-size:13px;color:#777;vertical-align:top;">Address</td>
