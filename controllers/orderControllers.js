@@ -254,6 +254,7 @@ exports.createOrder = async (req, res) => {
         const grandTotal = total + deliveryFee;
 
         const country = req.body.country || "Sri Lanka";
+        const city = req.body.city || null;
         const postalCode = req.body.postalCode || null;
 
         const newOrder = await Order.create({
@@ -262,6 +263,7 @@ exports.createOrder = async (req, res) => {
             name: (req.body.firstName && req.body.lastName) ? (req.body.firstName + " " + req.body.lastName) : (req.user.firstName + " " + req.user.lastName),
             address: req.body.address,
             country,
+            city,
             postalCode,
             phone: req.body.phone,
             secondaryPhone: req.body.secondaryPhone || null,

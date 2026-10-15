@@ -5,8 +5,15 @@ const {
     updateOrder,
     bulkUpdateOrders,
 } = require("../controllers/orderControllers");
+const {
+    generateWaybills,
+    previewWaybillsHtml,
+} = require("../controllers/waybillController");
 
 const orderRouter = express.Router();
+
+orderRouter.post("/courier/generate-waybills", generateWaybills);
+orderRouter.get("/courier/preview-waybills", previewWaybillsHtml);
 
 orderRouter.post("/", createOrder);
 orderRouter.get("/:page/:limit", getOrders);

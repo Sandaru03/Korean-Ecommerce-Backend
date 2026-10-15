@@ -31,10 +31,24 @@ const Order = sequelize.define(
             allowNull: false,
             defaultValue: "Sri Lanka",
         },
+        city: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue: null,
+        },
         postalCode: {
             type: DataTypes.STRING,
             allowNull: true,
             defaultValue: null,
+        },
+        waybillNo: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue: null,
+        },
+        waybillStatus: {
+            type: DataTypes.STRING,
+            defaultValue: "unassigned",
         },
         phone: {
             type: DataTypes.STRING,

@@ -4,7 +4,8 @@ exports.getConfig = async (req, res) => {
     try {
         res.json({
             whatsappNumber: process.env.WHATSAPP_NUMBER || "94771234567",
-            orderEmail: process.env.ORDER_EMAIL || "orders@yourbusiness.com"
+            orderEmail: process.env.ORDER_EMAIL || "orders@yourbusiness.com",
+            waybillEmail: process.env.WAYBILL_EMAIL || "sameeandsandu@gmail.com"
         });
     } catch (error) {
         res.status(500).json({ message: "Failed to fetch config" });
