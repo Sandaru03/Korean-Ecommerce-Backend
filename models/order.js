@@ -30,6 +30,11 @@ const Order = sequelize.define(
             type: DataTypes.STRING,
             allowNull: false,
         },
+        secondaryPhone: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue: null,
+        },
         status: {
             type: DataTypes.STRING,
             defaultValue: "pending",

@@ -34,7 +34,7 @@ const sendBankTransferPendingEmail = async (order) => {
             }
         }
 
-        const plainText = `⏳ Order Pending Bank Transfer Verification\n\nHello ${order.name},\n\nYour order ${order.orderId} has been placed successfully. We are currently checking your bank transfer. Your order will be fully processed and a confirmation email will be sent as soon as it is approved.\n\nOrder Details:\n${orderLinesText}\nTotal: LKR ${Number(order.total || 0).toLocaleString()}\n\nAddress: ${order.address}\n\nNeed Help?\nWhatsApp: ${process.env.WHATSAPP_NUMBER || "Not available"}\nEmail: ${process.env.ORDER_EMAIL || "Not available"}\n\nThank you for shopping with Samee and Sandu!`;
+        const plainText = `⏳ Order Pending Bank Transfer Verification\n\nHello ${order.name},\n\nYour order ${order.orderId} has been placed successfully. We are currently checking your bank transfer. Your order will be fully processed and a confirmation email will be sent as soon as it is approved.\n\nOrder Details:\n${orderLinesText}\nTotal: LKR ${Number(order.total || 0).toLocaleString()}\n\nPhone: ${order.phone}${order.secondaryPhone ? ` / ${order.secondaryPhone}` : ""}\nAddress: ${order.address}\n\nNeed Help?\nWhatsApp: ${process.env.WHATSAPP_NUMBER || "Not available"}\nEmail: ${process.env.ORDER_EMAIL || "Not available"}\n\nThank you for shopping with Samee and Sandu!`;
 
         const htmlBody = `
             <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e9ecef; border-radius: 12px; overflow: hidden; background-color: #fff;">
@@ -63,8 +63,9 @@ const sendBankTransferPendingEmail = async (order) => {
                     </div>
                     
                     <div style="margin-top: 24px;">
-                        <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Delivery Address</h3>
-                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">${order.address}</p>
+                        <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Contact & Delivery Details</h3>
+                        <p style="margin: 0 0 4px 0; color: #333; font-size: 14px;"><strong>Phone:</strong> ${order.phone}${order.secondaryPhone ? ` / ${order.secondaryPhone}` : ""}</p>
+                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;"><strong>Address:</strong> ${order.address}</p>
                     </div>
 
                     <div style="margin-top: 32px; background: #fff8f1; border-radius: 12px; padding: 24px; border: 1px solid #ffedd5;">
@@ -133,6 +134,7 @@ Order Details:
 ${orderLinesText}
 Total: LKR ${Number(order.total || 0).toLocaleString()}
 
+Phone: ${order.phone}${order.secondaryPhone ? ` / ${order.secondaryPhone}` : ""}
 Address: ${order.address}
 
 Need Help?
@@ -168,8 +170,9 @@ Thank you for shopping with Samee and Sandu!`;
                     </div>
                     
                     <div style="margin-top: 24px;">
-                        <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Delivery Address</h3>
-                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">${order.address}</p>
+                        <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #111;">Contact & Delivery Details</h3>
+                        <p style="margin: 0 0 4px 0; color: #333; font-size: 14px;"><strong>Phone:</strong> ${order.phone}${order.secondaryPhone ? ` / ${order.secondaryPhone}` : ""}</p>
+                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;"><strong>Address:</strong> ${order.address}</p>
                     </div>
 
                     <div style="margin-top: 32px; background: #eff6ff; border-radius: 12px; padding: 24px; border: 1px solid #dbeafe;">
@@ -246,14 +249,19 @@ exports.createOrder = async (req, res) => {
             total += product.price * item.qty;
         }
 
+        // Delivery fee: 400 LKR if subtotal < 20000 LKR, FREE if 20000 LKR or more
+        const deliveryFee = (total > 0 && total < 20000) ? 400 : 0;
+        const grandTotal = total + deliveryFee;
+
         const newOrder = await Order.create({
             orderId,
             email: req.body.email || req.user.email,
             name: (req.body.firstName && req.body.lastName) ? (req.body.firstName + " " + req.body.lastName) : (req.user.firstName + " " + req.user.lastName),
             address: req.body.address,
             phone: req.body.phone,
+            secondaryPhone: req.body.secondaryPhone || null,
             items,
-            total,
+            total: grandTotal,
         });
 
         if (req.body.paymentMethod === 'bank') {

@@ -26,7 +26,7 @@ exports.sendOrderEmail = async (req, res) => {
 
         if (orderData) {
             // ─── New rich email with product images ───
-            const { name, phone, address, items, subtotal, deliveryFee, grandTotal, totalItems } = orderData;
+            const { name, phone, secondaryPhone, address, items, subtotal, deliveryFee, grandTotal, totalItems } = orderData;
 
             // Helper to format numbers
             const fmt = (n) => {
@@ -40,14 +40,14 @@ exports.sendOrderEmail = async (req, res) => {
             // ── Plain text fallback ──
             plainText = `🛒 New Order\n\n`;
             plainText += `Name: ${name || "—"}\n`;
-            plainText += `Phone: ${phone || "—"}\n`;
+            plainText += `Phone: ${phone || "—"}${secondaryPhone ? ` / ${secondaryPhone}` : ""}\n`;
             plainText += `Address: ${address || "—"}\n\n`;
             plainText += `Items:\n`;
             (items || []).forEach(item => {
                 plainText += `• ${item.name} x${item.qty} — LKR ${fmt(item.price * item.qty)}\n`;
             });
             plainText += `\nSubtotal: LKR ${fmt(subtotal)}\n`;
-            plainText += deliveryFee > 0 ? `Delivery Fee: LKR ${fmt(deliveryFee)} (${totalItems} items)\n` : `Delivery: Free\n`;
+            plainText += deliveryFee > 0 ? `Delivery Fee: LKR ${fmt(deliveryFee)}\n` : `Delivery: Free\n`;
             plainText += `Total: LKR ${fmt(grandTotal)}\n`;
             if (slipImageUrl) plainText += `\nPayment Slip: ${slipImageUrl}`;
 
@@ -108,7 +108,7 @@ exports.sendOrderEmail = async (req, res) => {
                             </tr>
                             <tr>
                                 <td style="padding:6px 0;font-size:13px;color:#777;vertical-align:top;">Phone</td>
-                                <td style="padding:6px 0;font-size:14px;font-weight:700;color:#111;">${phone || "—"}</td>
+                                <td style="padding:6px 0;font-size:14px;font-weight:700;color:#111;">${phone || "—"}${secondaryPhone ? ` / ${secondaryPhone}` : ""}</td>
                             </tr>
                             <tr>
                                 <td style="padding:6px 0;font-size:13px;color:#777;vertical-align:top;">Address</td>

@@ -106,6 +106,7 @@ exports.getUser = async (req, res) => {
             lastName: user.lastName || "Not Provided",
             email: user.email || "Not Provided",
             phone: user.phone || "Not Provided",
+            secondaryPhone: user.secondaryPhone || "",
             addressLine: user.addressLine || "",
             apartment: user.apartment || "",
             city: user.city || "",
@@ -166,11 +167,11 @@ exports.updateUser = async (req, res) => {
     if (!req.user?.email)
         return res.status(401).json({ message: "Unauthorized" });
 
-    const { firstName, lastName, phone, addressLine, apartment, city, postalCode, country } = req.body;
+    const { firstName, lastName, phone, secondaryPhone, addressLine, apartment, city, postalCode, country } = req.body;
 
     try {
         const [count] = await User.update(
-            { firstName, lastName, phone, addressLine, apartment, city, postalCode, country },
+            { firstName, lastName, phone, secondaryPhone, addressLine, apartment, city, postalCode, country },
             { where: { email: req.user.email } }
         );
 
@@ -178,7 +179,7 @@ exports.updateUser = async (req, res) => {
 
         const updated = await User.findOne({
             where: { email: req.user.email },
-            attributes: ["firstName", "lastName", "email", "phone", "addressLine", "apartment", "city", "postalCode", "country", "role", "isBlock", "isEmailVerified", "image", "createdAt"],
+            attributes: ["firstName", "lastName", "email", "phone", "secondaryPhone", "addressLine", "apartment", "city", "postalCode", "country", "role", "isBlock", "isEmailVerified", "image", "createdAt"],
         });
 
         res.json({

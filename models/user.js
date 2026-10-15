@@ -30,6 +30,11 @@ const User = sequelize.define(
             type: DataTypes.STRING,
             defaultValue: "Not Given",
         },
+        secondaryPhone: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue: null,
+        },
         isBlock: {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
