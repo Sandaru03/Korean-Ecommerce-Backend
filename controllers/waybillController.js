@@ -2,6 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer-core");
+const bwipjs = require("bwip-js");
 const Order = require("../models/order");
 const { sendEmail } = require("../utils/mailer");
 
@@ -92,9 +93,53 @@ function getWaybillBgImage() {
 }
 
 /**
+ * Generate Base64 barcode data URI using bwip-js locally
+ */
+async function generateBarcodeDataUrl(text) {
+    try {
+        const png = await bwipjs.toBuffer({
+            bcid: "code128",
+            text: String(text),
+            scale: 3,
+            height: 12,
+            includetext: true,
+            textxalign: "center",
+            textsize: 10,
+            backgroundcolor: "FFFFFF",
+            paddingwidth: 4,
+            paddingheight: 3,
+        });
+        return `data:image/png;base64,${png.toString("base64")}`;
+    } catch (e) {
+        console.error("Barcode generation error:", e);
+        return `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(text)}&code=Code128&dpi=96`;
+    }
+}
+
+/**
+ * Generate Base64 QR code data URI using bwip-js locally
+ */
+async function generateQrDataUrl(text) {
+    try {
+        const png = await bwipjs.toBuffer({
+            bcid: "qrcode",
+            text: String(text),
+            scale: 3,
+            backgroundcolor: "FFFFFF",
+            paddingwidth: 3,
+            paddingheight: 3,
+        });
+        return `data:image/png;base64,${png.toString("base64")}`;
+    } catch (e) {
+        console.error("QR generation error:", e);
+        return `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(text)}&code=QRCode`;
+    }
+}
+
+/**
  * Build 9-per-A4 HTML sticker template
  */
-function generateStickersHtml(ordersList) {
+async function generateStickersHtml(ordersList) {
     const bgImageUrl = getWaybillBgImage();
 
     // Split into pages of 9 stickers each
@@ -105,21 +150,24 @@ function generateStickersHtml(ordersList) {
 
     let pagesHtml = "";
 
-    pages.forEach((pageOrders, pageIdx) => {
+    for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+        const pageOrders = pages[pageIdx];
         let stickersHtml = "";
 
         // Render each order in this page
-        pageOrders.forEach((item) => {
+        for (const item of pageOrders) {
             const waybill = item.waybillNo || "PENDING";
             const amount = Number(item.amount || 0);
-            const isAlreadyPaid = amount <= 0;
 
-            const qrUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-                waybill
-            )}&code=QRCode`;
-            const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-                waybill
-            )}&code=Code128&dpi=96`;
+            // Generate Barcode & QR Code locally in parallel
+            const [qrUrl, barcodeUrl] = await Promise.all([
+                generateQrDataUrl(waybill),
+                generateBarcodeDataUrl(waybill),
+            ]);
+
+            const codText = amount > 0 
+                ? `COD : ${amount.toFixed(2)} LKR` 
+                : `COD : 0.00 LKR`;
 
             stickersHtml += `
             <div class="sticker">
@@ -164,18 +212,20 @@ function generateStickersHtml(ordersList) {
 
                 <!-- Footer Area -->
                 <div class="footer-area">
-                    <div class="cod-row ${isAlreadyPaid ? "already-paid" : ""}">
-                        ${isAlreadyPaid ? "Already Paid" : `COD : ${amount.toFixed(2)} LKR`}
+                    <div class="cod-row">
+                        ${codText}
                     </div>
                     <div class="bottom-content">
-                        <img class="qr-img" src="${qrUrl}" alt="QR" />
-                        <div class="barcode-wrapper">
+                        <div class="qr-card">
+                            <img class="qr-img" src="${qrUrl}" alt="QR" />
+                        </div>
+                        <div class="barcode-card">
                             <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
                         </div>
                     </div>
                 </div>
             </div>`;
-        });
+        }
 
         // Fill empty slots if last page has < 9 stickers to maintain 3x3 geometry
         const emptyCount = 9 - pageOrders.length;
@@ -184,7 +234,7 @@ function generateStickersHtml(ordersList) {
         }
 
         pagesHtml += `<div class="grid-container">${stickersHtml}</div>`;
-    });
+    }
 
     return `<!DOCTYPE html>
 <html>
@@ -229,7 +279,7 @@ function generateStickersHtml(ordersList) {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            background-image: linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)), url("${bgImageUrl}");
+            background-image: url("${bgImageUrl}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -319,45 +369,64 @@ function generateStickersHtml(ordersList) {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding-top: 1.5mm;
+            padding-top: 1mm;
+            height: 25mm;
         }
         .cod-row {
-            height: 5.5mm;
+            height: 5mm;
             width: 100%;
             text-align: center;
-            font-weight: bold;
-            font-size: 2.8mm;
-            line-height: 5.5mm;
+            font-weight: 800;
+            font-size: 2.85mm;
+            line-height: 5mm;
             color: #111;
-        }
-        .cod-row.already-paid {
-            color: #15803d;
-            font-size: 3mm;
-            font-weight: 900;
+            letter-spacing: 0.1mm;
         }
         .bottom-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            padding: 0 1mm;
             gap: 2mm;
+            height: 19mm;
         }
-        .qr-img {
-            width: 14mm;
-            height: 14mm;
-            object-fit: contain;
-        }
-        .barcode-wrapper {
+        .qr-card {
+            width: 19mm;
+            height: 19mm;
+            background: #ffffff;
+            border-radius: 1mm;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 0.8mm;
+            box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.15);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .qr-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .barcode-card {
             flex: 1;
+            height: 19mm;
+            background: #ffffff;
+            border-radius: 1mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.8mm 1mm;
+            box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
         }
         .barcode-img {
-            width: 38mm;
-            height: 14mm;
+            width: 100%;
+            max-width: 40mm;
+            height: 100%;
             object-fit: contain;
+            display: block;
         }
         @media print {
             body { margin: 0; padding: 0; }
@@ -535,7 +604,7 @@ exports.generateWaybills = async (req, res) => {
         }
 
         // Build HTML template
-        const fullHtml = generateStickersHtml(processedOrders);
+        const fullHtml = await generateStickersHtml(processedOrders);
 
         // Generate PDF using puppeteer-core with Edge / Chrome
         let pdfBuffer = null;
@@ -671,6 +740,24 @@ exports.previewWaybillsHtml = async (req, res) => {
         }
 
         const orderIds = orderIdsParam.split(",").map((s) => s.trim());
+
+        if (orderIdsParam === "sample" || orderIdsParam === "preview") {
+            const sampleList = Array.from({ length: 9 }).map((_, i) => ({
+                orderId: `ORD0000${i + 1}`,
+                waybillNo: `1475950${i + 1}`,
+                amount: 0,
+                parcelDesc: "Skincare Items - Free Delivery",
+                name: "KAVINDA PERERA",
+                phone: "0771234567",
+                secondaryPhone: "0719876543",
+                address: "No. 45/A, Galle Road, Colombo 03",
+                city: "Colombo",
+            }));
+            const html = await generateStickersHtml(sampleList);
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            return res.send(html);
+        }
+
         const orders = await Order.findAll({
             where: { orderId: orderIds },
         });
@@ -690,7 +777,7 @@ exports.previewWaybillsHtml = async (req, res) => {
             city: extractCity(o.address, o.city),
         }));
 
-        const html = generateStickersHtml(list);
+        const html = await generateStickersHtml(list);
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.send(html);
     } catch (error) {
