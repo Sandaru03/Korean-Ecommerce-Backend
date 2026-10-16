@@ -39,11 +39,63 @@ function extractCity(address, fallbackCity) {
 }
 
 /**
+ * Get Waybill background image (local assets file as base64 or remote URL)
+ */
+function getWaybillBgImage() {
+    const assetsDir = path.join(__dirname, "../assets");
+    const candidates = [
+        "waybill-bg.png",
+        "waybill-bg.jpg",
+        "waybill-bg.jpeg",
+        "waybill-bg.webp",
+        "waybill_bg.png",
+        "waybill_bg.jpg",
+        "waybill-background.png",
+        "waybill-background.jpg",
+    ];
+
+    for (const name of candidates) {
+        const filePath = path.join(assetsDir, name);
+        if (fs.existsSync(filePath)) {
+            try {
+                const ext = path.extname(name).replace(".", "").toLowerCase();
+                const mime = ext === "jpg" ? "jpeg" : ext;
+                const base64 = fs.readFileSync(filePath).toString("base64");
+                return `data:image/${mime};base64,${base64}`;
+            } catch (e) {
+                console.error("Error reading local waybill background image:", e);
+            }
+        }
+    }
+
+    // Also check uploads directory
+    const uploadsDir = path.join(__dirname, "../uploads");
+    for (const name of candidates) {
+        const filePath = path.join(uploadsDir, name);
+        if (fs.existsSync(filePath)) {
+            try {
+                const ext = path.extname(name).replace(".", "").toLowerCase();
+                const mime = ext === "jpg" ? "jpeg" : ext;
+                const base64 = fs.readFileSync(filePath).toString("base64");
+                return `data:image/${mime};base64,${base64}`;
+            } catch (e) {
+                console.error("Error reading uploads waybill background image:", e);
+            }
+        }
+    }
+
+    // Fallback to env URL or remote Google Drive image
+    return (
+        process.env.WAYBILL_BG_URL ||
+        "https://lh3.googleusercontent.com/d/1TxRajx-usDbaEg7QvfMlbKqhrhEOCQqg"
+    );
+}
+
+/**
  * Build 9-per-A4 HTML sticker template
  */
 function generateStickersHtml(ordersList) {
-    const bgImageUrl =
-        "https://lh3.googleusercontent.com/d/1TxRajx-usDbaEg7QvfMlbKqhrhEOCQqg";
+    const bgImageUrl = getWaybillBgImage();
 
     // Split into pages of 9 stickers each
     const pages = [];
