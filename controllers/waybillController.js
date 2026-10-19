@@ -139,7 +139,7 @@ async function generateQrDataUrl(text) {
 /**
  * Build 9-per-A4 HTML sticker template
  */
-async function generateStickersHtml(ordersList) {
+async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
     const bgImageUrl = getWaybillBgImage();
 
     // Split into pages of 9 stickers each
@@ -236,6 +236,31 @@ async function generateStickersHtml(ordersList) {
         pagesHtml += `<div class="grid-container">${stickersHtml}</div>`;
     }
 
+    const previewTopBar = isPreview ? `
+    <div class="no-print" style="position: sticky; top: 0; z-index: 9999; background: #0f172a; color: #f8fafc; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 22px;">🚚</span>
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 800; font-size: 15px; letter-spacing: -0.3px;">Waybill Stickers Preview</span>
+                    <span style="background: #0284c7; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase;">Test View Only</span>
+                </div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
+                    Showing <strong>${ordersList.length}</strong> sticker(s) • <strong>9 stickers per A4 page</strong> • <em>No orders were sent to the courier dashboard yet.</em>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button onclick="window.print()" style="background: #10b981; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                🖨️ Print Sheet / Save PDF
+            </button>
+            <button onclick="window.close()" style="background: #334155; color: #e2e8f0; border: 1px solid #475569; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                ✕ Close
+            </button>
+        </div>
+    </div>
+    ` : "";
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -255,7 +280,7 @@ async function generateStickersHtml(ordersList) {
             font-family: Arial, Helvetica, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #fff;
+            background-color: ${isPreview ? "#f1f5f9" : "#fff"};
             color: #000;
         }
         .grid-container {
@@ -264,8 +289,10 @@ async function generateStickersHtml(ordersList) {
             grid-template-rows: repeat(3, 99mm);
             width: 210mm;
             height: 297mm;
-            margin: 0 auto;
+            margin: ${isPreview ? "20px auto" : "0 auto"};
             padding: 0;
+            background-color: #fff;
+            ${isPreview ? "box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);" : ""}
             page-break-after: always;
         }
         .grid-container:last-child {
@@ -429,13 +456,27 @@ async function generateStickersHtml(ordersList) {
             display: block;
         }
         @media print {
-            body { margin: 0; padding: 0; }
-            .grid-container { page-break-after: always; }
-            .grid-container:last-child { page-break-after: avoid; }
+            .no-print {
+                display: none !important;
+            }
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
+            .grid-container {
+                margin: 0 !important;
+                box-shadow: none !important;
+                page-break-after: always;
+            }
+            .grid-container:last-child {
+                page-break-after: avoid;
+            }
         }
     </style>
 </head>
 <body>
+    ${previewTopBar}
     ${pagesHtml}
 </body>
 </html>`;
@@ -753,7 +794,7 @@ exports.previewWaybillsHtml = async (req, res) => {
                 address: "No. 45/A, Galle Road, Colombo 03",
                 city: "Colombo",
             }));
-            const html = await generateStickersHtml(sampleList);
+            const html = await generateStickersHtml(sampleList, { isPreview: true });
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             return res.send(html);
         }
@@ -762,9 +803,36 @@ exports.previewWaybillsHtml = async (req, res) => {
             where: { orderId: orderIds },
         });
 
-        const list = orders.map((o) => ({
+        if (orders.length === 0) {
+            return res.status(404).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>No Orders Found</title>
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 60px 20px; display: flex; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+                        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 36px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+                        h2 { color: #0f172a; margin-top: 0; font-size: 20px; }
+                        p { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                        .btn { display: inline-flex; align-items: center; gap: 8px; background: #0284c7; color: #fff; font-weight: 700; font-size: 14px; padding: 10px 20px; border-radius: 10px; text-decoration: none; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <div style="font-size: 40px; margin-bottom: 12px;">📦</div>
+                        <h2>No Matching Orders Found</h2>
+                        <p>No orders in the database matched: <code>${orderIdsParam}</code>.<br/>You can test how the 9-per-A4 stickers look using the sample preview.</p>
+                        <a href="?orderIds=sample" class="btn">View Sample A4 Sheet Preview</a>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+
+        const list = orders.map((o, idx) => ({
             orderId: o.orderId,
-            waybillNo: o.waybillNo || "14759504",
+            waybillNo: o.waybillNo || `147595${String(idx + 1).padStart(2, "0")}`,
             amount: 0,
             parcelDesc:
                 o.total >= 20000
@@ -777,7 +845,7 @@ exports.previewWaybillsHtml = async (req, res) => {
             city: extractCity(o.address, o.city),
         }));
 
-        const html = await generateStickersHtml(list);
+        const html = await generateStickersHtml(list, { isPreview: true });
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.send(html);
     } catch (error) {

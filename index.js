@@ -159,7 +159,7 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Connected to MySQL database");
-    return sequelize.sync({ alter: true }); // Creates/Alters tables to match models
+    return sequelize.sync(); // Syncs tables safely without generating duplicate keys
   })
   .then(async () => {
     console.log("Database tables synced");

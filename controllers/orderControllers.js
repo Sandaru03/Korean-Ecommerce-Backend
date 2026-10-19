@@ -3,6 +3,7 @@ const Product = require("../models/product");
 const { isAdmin } = require("./userControllers");
 const { Op } = require("sequelize");
 const { sendEmail } = require("../utils/mailer");
+const { syncOrderToGoogleSheet } = require("../utils/googleSheetService");
 
 const sendBankTransferPendingEmail = async (order) => {
     try {
@@ -249,11 +250,13 @@ exports.createOrder = async (req, res) => {
             total += product.price * item.qty;
         }
 
-        // Delivery fee: 400 LKR if subtotal < 20000 LKR, FREE if 20000 LKR or more
-        const deliveryFee = (total > 0 && total < 20000) ? 400 : 0;
+        const country = req.body.country || "Sri Lanka";
+        const isDomestic = !country || country.trim().toLowerCase().includes("sri lanka");
+
+        // Delivery fee: 400 LKR if domestic Sri Lanka and subtotal < 20000 LKR. For international orders, delivery fee is 0.
+        const deliveryFee = (isDomestic && total > 0 && total < 20000) ? 400 : 0;
         const grandTotal = total + deliveryFee;
 
-        const country = req.body.country || "Sri Lanka";
         const city = req.body.city || null;
         const postalCode = req.body.postalCode || null;
 
@@ -274,6 +277,13 @@ exports.createOrder = async (req, res) => {
         if (req.body.paymentMethod === 'bank') {
             await sendBankTransferPendingEmail(newOrder);
         }
+
+        // Asynchronously sync order to Google Sheets (non-blocking)
+        syncOrderToGoogleSheet(newOrder, {
+            subtotal: total,
+            deliveryFee,
+            paymentMethod: req.body.paymentMethod || "Bank Transfer"
+        }).catch(err => console.error("Google Sheets sync failed:", err.message));
 
         res.json({ message: "Order Created Successfully", result: newOrder });
     } catch (error) {
