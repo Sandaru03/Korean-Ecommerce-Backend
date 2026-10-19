@@ -61,6 +61,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 app.use("/downloads", express.static("downloads"));
+app.use("/assets", express.static("assets"));
 
 // Simple request logger
 app.use((req, res, next) => {

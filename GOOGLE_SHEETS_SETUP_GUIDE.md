@@ -78,7 +78,33 @@ function doPost(e) {
       sheet.setFrozenRows(1);
     }
     
-    // Append the new order details
+    // ─── ACTION: Status Update (Find row by Order ID and update Status column) ───
+    if (data.action === "updateStatus") {
+      var orderId = data.orderId;
+      var newStatus = data.status;
+      var lastRow = sheet.getLastRow();
+      
+      if (lastRow > 1 && orderId) {
+        var orderIdValues = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // Column 2 = Order ID
+        for (var i = 0; i < orderIdValues.length; i++) {
+          if (String(orderIdValues[i][0]).trim() === String(orderId).trim()) {
+            var rowIndex = i + 2;
+            sheet.getRange(rowIndex, 16).setValue(newStatus); // Column 16 = Order Status
+            return ContentService.createTextOutput(JSON.stringify({ 
+              status: "success", 
+              action: "updated", 
+              orderId: orderId, 
+              newStatus: newStatus, 
+              row: rowIndex 
+            })).setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: "not_found", orderId: orderId }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // ─── ACTION: New Order (Append new row) ───
     sheet.appendRow([
       data.dateTime || new Date().toLocaleString(),
       data.orderId || "",
@@ -94,11 +120,11 @@ function doPost(e) {
       data.subtotal || 0,
       data.deliveryFee || 0,
       data.grandTotal || 0,
-      data.paymentMethod || "",
-      data.status || "pending"
+      data.paymentMethod || "Bank Transfer",
+      data.status || "Pending"
     ]);
     
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", action: "created" }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))

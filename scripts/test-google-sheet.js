@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { syncOrderToGoogleSheet } = require("../utils/googleSheetService");
+const { syncOrderToGoogleSheet, updateGoogleSheetOrderStatus } = require("../utils/googleSheetService");
 
 async function runTest() {
     console.log("==================================================");
@@ -14,11 +14,12 @@ async function runTest() {
         process.exit(1);
     }
 
+    const testOrderId = `TEST-${Math.floor(100000 + Math.random() * 900000)}`;
     console.log(`\nWebhook URL found: ${webhookUrl.substring(0, 45)}...`);
-    console.log("Sending sample test order to Google Sheets...\n");
+    console.log(`1. Sending sample test order (${testOrderId}) as 'Pending'...`);
 
     const sampleOrder = {
-        orderId: `TEST-${Math.floor(100000 + Math.random() * 900000)}`,
+        orderId: testOrderId,
         name: "Test Customer",
         phone: "0771234567",
         secondaryPhone: "0719876543",
@@ -28,7 +29,7 @@ async function runTest() {
         postalCode: "00500",
         address: "No. 123, Sample Street, Colombo 05",
         items: [
-            { productName: "Medicube Age-R Vitamin C Ampoule (15ml)", qty: 1 },
+            { productName: "Medicube Age-R Vitamin C Ampoule", qty: 1 },
             { productName: "Anua Heartleaf 77% Soothing Toner", qty: 2 }
         ],
         total: 15400,
@@ -44,14 +45,12 @@ async function runTest() {
 
     try {
         await syncOrderToGoogleSheet(sampleOrder, extra);
-        console.log("\n✅ Test finished! Open your Google Sheet to verify that the new row appeared.");
+        console.log(`\n2. Updating status for ${testOrderId} to 'Payment Complete'...`);
+        await new Promise(r => setTimeout(r, 1200));
+        await updateGoogleSheetOrderStatus(testOrderId, "Payment Complete");
+        console.log("\n✅ Test finished! Open your Google Sheet to verify that the row was added and updated to 'Payment Complete'.");
     } catch (err) {
         console.error("\n❌ Test failed with error:", err.message);
-        if (err.message && err.message.includes("403")) {
-            console.log("\n👉 TIP: A 403 error means your Apps Script deployment permission is set to 'Only myself'.");
-            console.log("In Google Apps Script, click: Deploy > Manage deployments > Edit ✏️");
-            console.log("Change 'Who has access' to 'Anyone' and click Deploy again!\n");
-        }
     }
 }
 

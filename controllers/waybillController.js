@@ -5,6 +5,7 @@ const puppeteer = require("puppeteer-core");
 const bwipjs = require("bwip-js");
 const Order = require("../models/order");
 const { sendEmail } = require("../utils/mailer");
+const { renderWaybillEmail, getEmailAttachments } = require("../utils/emailTemplates");
 
 /**
  * Locate Chrome or Edge executable on Windows
@@ -704,23 +705,13 @@ exports.generateWaybills = async (req, res) => {
         let emailSent = false;
 
         try {
-            const subject = `Custom Waybill Stickers (${processedOrders.length} Orders) - ${new Date().toLocaleDateString(
-                "en-GB"
-            )}`;
-            const mailText = `මෙහි ඔබ ඉල්ලූ පරිදි තෝරාගත් ඕඩර් (${processedOrders.length}) සඳහා වන ස්ටිකර් PDF එක අමුණා ඇත.\n\nAttached is the generated courier waybills sticker PDF sheet.\n\nTotal Orders: ${processedOrders.length}\nNewly Created: ${newlyCreatedCount}\nReused: ${reusedCount}`;
-            const mailHtml = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                    <h2 style="color: #0ea5e9; margin-top: 0;">🚚 Custom Waybill Stickers Generated</h2>
-                    <p>මෙහි ඔබ ඉල්ලූ පරිදි තෝරාගත් ඕඩර් සඳහා වන ස්ටිකර් PDF එක අමුණා ඇත.</p>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-                        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Total Waybills:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${processedOrders.length}</td></tr>
-                        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Newly Created:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${newlyCreatedCount}</td></tr>
-                        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Reused Existing:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${reusedCount}</td></tr>
-                        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Date:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${new Date().toLocaleString()}</td></tr>
-                    </table>
-                    <p style="margin-top: 20px; font-size: 13px; color: #666;">This PDF contains 9 stickers per A4 page, ready for direct sticker printing.</p>
-                </div>
-            `;
+            const subject = `Custom Waybill Stickers (${processedOrders.length} Orders) — Samee and Sandu`;
+            const { html: mailHtml, text: mailText } = renderWaybillEmail({
+                processedCount: processedOrders.length,
+                newlyCreatedCount,
+                reusedCount,
+                pdfFilename
+            });
 
             const attachments = [];
             if (pdfBuffer) {
@@ -735,7 +726,7 @@ exports.generateWaybills = async (req, res) => {
                 subject,
                 text: mailText,
                 html: mailHtml,
-                attachments,
+                attachments: getEmailAttachments(attachments),
             });
             emailSent = true;
             console.log(`Waybill PDF email sent to ${recipientEmail}`);

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "test:sheet": "node scripts/test-google-sheet.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -49,6 +49,13 @@ async function syncOrderToGoogleSheet(order, extra = {}) {
         const deliveryFee = extra.deliveryFee !== undefined ? extra.deliveryFee : (order.total - subtotal);
         const grandTotal = order.total || (subtotal + deliveryFee);
 
+        const statusMap = {
+            payment_completed: "Payment Complete",
+            cancelled: "Cancelled",
+            pending: "Pending"
+        };
+        const displayStatus = statusMap[order.status] || (order.status ? (order.status.charAt(0).toUpperCase() + order.status.slice(1)) : "Pending");
+
         const payload = {
             dateTime: formattedDate,
             orderId: order.orderId || "",
@@ -65,7 +72,7 @@ async function syncOrderToGoogleSheet(order, extra = {}) {
             deliveryFee: deliveryFee,
             grandTotal: grandTotal,
             paymentMethod: extra.paymentMethod || "Bank Transfer",
-            status: order.status || "pending"
+            status: displayStatus
         };
 
         // Send to Google Apps Script Webhook
@@ -86,4 +93,39 @@ async function syncOrderToGoogleSheet(order, extra = {}) {
     }
 }
 
-module.exports = { syncOrderToGoogleSheet };
+/**
+ * Update order status in Google Sheet for an existing order row.
+ * Non-blocking & fail-safe.
+ *
+ * @param {string} orderId - e.g. "ORD00012"
+ * @param {string} newStatus - "Payment Complete" | "Cancelled" | "Pending"
+ */
+async function updateGoogleSheetOrderStatus(orderId, newStatus) {
+    const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL;
+    if (!webhookUrl || !webhookUrl.trim() || !orderId) {
+        return;
+    }
+
+    try {
+        const payload = {
+            action: "updateStatus",
+            orderId: String(orderId).trim(),
+            status: newStatus
+        };
+
+        const response = await axios.post(webhookUrl.trim(), JSON.stringify(payload), {
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            timeout: 10000,
+            maxRedirects: 5
+        });
+
+        console.log(`[Google Sheets] Order ${orderId} status updated to '${newStatus}':`, response.data);
+        return response.data;
+    } catch (err) {
+        console.error(`[Google Sheets] Error updating order status for ${orderId}:`, err.message);
+    }
+}
+
+module.exports = { syncOrderToGoogleSheet, updateGoogleSheetOrderStatus };
