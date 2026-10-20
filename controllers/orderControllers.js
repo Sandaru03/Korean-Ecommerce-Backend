@@ -414,3 +414,46 @@ exports.bulkUpdateOrders = async (req, res) => {
         res.status(500).json({ message: "Failed to bulk update orders" });
     }
 };
+
+exports.deleteOrder = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Access denied" });
+    }
+
+    try {
+        const orderId = req.params.id;
+        const count = await Order.destroy({ where: { orderId } });
+
+        if (count === 0) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        res.json({ message: "Order deleted successfully" });
+    } catch (err) {
+        console.error("Error deleting order:", err);
+        res.status(500).json({ message: "Failed to delete order" });
+    }
+};
+
+exports.bulkDeleteOrders = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ message: "Access denied" });
+    }
+
+    try {
+        const { orderIds } = req.body;
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({ message: "No order IDs provided" });
+        }
+
+        const count = await Order.destroy({
+            where: { orderId: { [Op.in]: orderIds } }
+        });
+
+        res.json({ message: `${count} orders deleted successfully` });
+    } catch (err) {
+        console.error("Error bulk deleting orders:", err);
+        res.status(500).json({ message: "Failed to bulk delete orders" });
+    }
+};
+

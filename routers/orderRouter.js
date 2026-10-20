@@ -4,6 +4,8 @@ const {
     getOrders,
     updateOrder,
     bulkUpdateOrders,
+    deleteOrder,
+    bulkDeleteOrders,
 } = require("../controllers/orderControllers");
 const {
     generateWaybills,
@@ -19,6 +21,8 @@ orderRouter.post("/", createOrder);
 orderRouter.get("/:page/:limit", getOrders);
 orderRouter.get("/", getOrders);
 orderRouter.put("/bulk/status", bulkUpdateOrders);
+orderRouter.delete("/bulk", bulkDeleteOrders);
 orderRouter.put("/:id", updateOrder);
+orderRouter.delete("/:id", deleteOrder);
 
 module.exports = orderRouter;
