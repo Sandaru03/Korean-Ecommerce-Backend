@@ -221,6 +221,7 @@ exports.createOrder = async (req, res) => {
             secondaryPhone: req.body.secondaryPhone || null,
             items,
             total: grandTotal,
+            deliveryFee: Number(deliveryFee || 0),
         });
 
         if (req.body.paymentMethod === 'bank') {
@@ -327,15 +328,34 @@ exports.updateOrder = async (req, res) => {
 
     try {
         const orderId = req.params.id;
-        const { status, notes } = req.body;
+        const {
+            status,
+            notes,
+            phone,
+            secondaryPhone,
+            address,
+            city,
+            name,
+            postalCode,
+        } = req.body;
 
         const previousOrder = await Order.findOne({ where: { orderId } });
         if (!previousOrder) {
             return res.status(404).json({ message: "Order not found" });
         }
 
+        const updateFields = {};
+        if (status !== undefined) updateFields.status = status;
+        if (notes !== undefined) updateFields.notes = notes;
+        if (phone !== undefined) updateFields.phone = phone;
+        if (secondaryPhone !== undefined) updateFields.secondaryPhone = secondaryPhone;
+        if (address !== undefined) updateFields.address = address;
+        if (city !== undefined) updateFields.city = city;
+        if (name !== undefined) updateFields.name = name;
+        if (postalCode !== undefined) updateFields.postalCode = postalCode;
+
         const [count] = await Order.update(
-            { status, notes },
+            updateFields,
             { where: { orderId } }
         );
 

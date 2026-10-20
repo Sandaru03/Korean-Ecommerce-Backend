@@ -82,6 +82,11 @@ const Order = sequelize.define(
             allowNull: false,
             defaultValue: 0,
         },
+        deliveryFee: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0,
+        },
     },
     {
         timestamps: false,

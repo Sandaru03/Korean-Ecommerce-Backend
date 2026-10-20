@@ -3,9 +3,31 @@ const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer-core");
 const bwipjs = require("bwip-js");
+const dotenv = require("dotenv");
 const Order = require("../models/order");
 const { sendEmail } = require("../utils/mailer");
 const { renderWaybillEmail, getEmailAttachments } = require("../utils/emailTemplates");
+
+/**
+ * Dynamically fetch WAYBILL_EMAIL directly from .env file so any change in .env
+ * reflects immediately without requiring a backend server restart.
+ */
+function getWaybillEmail() {
+    try {
+        const envPath = path.resolve(__dirname, "../.env");
+        if (fs.existsSync(envPath)) {
+            const envContent = fs.readFileSync(envPath, "utf-8");
+            const parsed = dotenv.parse(envContent);
+            if (parsed.WAYBILL_EMAIL && parsed.WAYBILL_EMAIL.trim()) {
+                process.env.WAYBILL_EMAIL = parsed.WAYBILL_EMAIL.trim();
+                return parsed.WAYBILL_EMAIL.trim();
+            }
+        }
+    } catch (err) {
+        console.error("Error reading .env for WAYBILL_EMAIL:", err.message);
+    }
+    return process.env.WAYBILL_EMAIL || "d.chandima163@gmail.com";
+}
 
 /**
  * Locate Chrome or Edge executable on Windows
@@ -24,20 +46,85 @@ function getBrowserExecutablePath() {
 }
 
 /**
- * Helper to extract city from address if city field is empty
+ * Helper to clean city names (removes punctuation, dots, dashes, digits)
+ */
+function cleanCityName(raw) {
+    if (!raw) return "";
+    let c = String(raw).trim();
+    // remove leading and trailing punctuation, dots, dashes, slashes, whitespace
+    c = c.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "").trim();
+    return c;
+}
+
+/**
+ * Helper to extract city from address if city field is empty or numeric
  */
 function extractCity(address, fallbackCity) {
-    if (fallbackCity && fallbackCity.trim()) return fallbackCity.trim();
+    if (fallbackCity && fallbackCity.trim() && isNaN(fallbackCity.trim())) {
+        return cleanCityName(fallbackCity);
+    }
     if (!address) return "Colombo";
-    const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
-    // Remove "Sri Lanka" and postal codes if at the end
+    // Replace newlines with commas
+    const flat = address.replace(/[\r\n]+/g, ", ");
+    const parts = flat.split(",").map((s) => cleanCityName(s)).filter(Boolean);
     const cleaned = parts.filter(
-        (p) => !p.toLowerCase().includes("sri lanka") && !/^\d{4,6}$/.test(p)
+        (p) => !p.toLowerCase().includes("sri lanka") && !/^\d{4,6}$/.test(p) && isNaN(p)
     );
     if (cleaned.length >= 2) {
-        return cleaned[cleaned.length - 1];
+        return cleanCityName(cleaned[cleaned.length - 1]);
     }
-    return cleaned[0] || "Colombo";
+    return cleanCityName(cleaned[0]) || "Colombo";
+}
+
+const FED_STATUS_MESSAGES = {
+    "200": "Success",
+    "201": "Invalid Courier API Key or Client ID",
+    "202": "Missing required parcel parameters",
+    "203": "Invalid pickup contact phone number",
+    "204": "Invalid parcel weight",
+    "205": "Duplicate order ID",
+    "206": "Invalid recipient phone number (must be a valid 10-digit Sri Lankan phone number, e.g. 0771234567)",
+    "207": "Invalid recipient secondary phone number",
+    "208": "Invalid recipient delivery address",
+    "209": "Invalid recipient city / delivery hub not recognized by courier",
+};
+
+/**
+ * Sanitize Sri Lankan phone number to standard format (e.g. 0771234567)
+ */
+function sanitizePhone(phone) {
+    if (!phone) return "";
+    let p = String(phone).trim().replace(/[^0-9]/g, "");
+    if (p.startsWith("94") && p.length === 11) {
+        p = "0" + p.slice(2);
+    } else if (p.length === 9) {
+        p = "0" + p;
+    }
+    return p;
+}
+
+/**
+ * Helper to determine the COD delivery fee for an order
+ * Free Delivery for orders >= 20,000 LKR or International
+ */
+function getOrderDeliveryFee(order) {
+    if (!order) return 0;
+    // High-value orders >= 20,000 LKR get Free Delivery
+    if (Number(order.total || 0) >= 20000) return 0;
+
+    // If deliveryFee is explicitly saved on the order, use it
+    if (order.deliveryFee !== undefined && order.deliveryFee !== null && Number(order.deliveryFee) > 0) {
+        return Number(order.deliveryFee);
+    }
+
+    // Fallback for older orders: subtotal vs total
+    if (Array.isArray(order.items) && order.items.length > 0) {
+        const subtotal = order.items.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.qty || 1)), 0);
+        const inferred = Number(order.total || 0) - subtotal;
+        if (inferred > 0) return inferred;
+    }
+
+    return 0;
 }
 
 /**
@@ -140,7 +227,7 @@ async function generateQrDataUrl(text) {
 /**
  * Build 9-per-A4 HTML sticker template
  */
-async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
+async function generateStickersHtml(ordersList, { isPreview = false, orderIdsParam = "" } = {}) {
     const bgImageUrl = getWaybillBgImage();
 
     // Split into pages of 9 stickers each
@@ -157,18 +244,47 @@ async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
 
         // Render each order in this page
         for (const item of pageOrders) {
-            const waybill = item.waybillNo || "PENDING";
+            const hasWaybill = !!(
+                item.waybillNo && 
+                item.waybillNo.trim() !== "" && 
+                item.waybillNo.toLowerCase() !== "null" && 
+                item.waybillNo.toLowerCase() !== "pending" && 
+                !item.waybillNo.toLowerCase().includes("not created")
+            );
+
+            const waybill = hasWaybill ? item.waybillNo.trim() : null;
             const amount = Number(item.amount || 0);
 
-            // Generate Barcode & QR Code locally in parallel
-            const [qrUrl, barcodeUrl] = await Promise.all([
-                generateQrDataUrl(waybill),
-                generateBarcodeDataUrl(waybill),
-            ]);
+            // Generate Barcode & QR Code locally in parallel ONLY if official waybill exists
+            let qrUrl = "";
+            let barcodeUrl = "";
+            if (hasWaybill) {
+                [qrUrl, barcodeUrl] = await Promise.all([
+                    generateQrDataUrl(waybill),
+                    generateBarcodeDataUrl(waybill),
+                ]);
+            }
 
             const codText = amount > 0 
                 ? `COD : ${amount.toFixed(2)} LKR` 
                 : `COD : 0.00 LKR`;
+
+            const waybillHeaderHtml = hasWaybill 
+                ? `<span class="waybill-top">Waybill ID : ${waybill}</span>` 
+                : `<span class="waybill-top" style="color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;padding:1px 5px;border-radius:3px;font-size:2.05mm;font-weight:900;letter-spacing:0.05mm;">⚠️ NOT CREATED IN COURIER</span>`;
+
+            const bottomContentHtml = hasWaybill ? `
+                <div class="qr-card">
+                    <img class="qr-img" src="${qrUrl}" alt="QR" />
+                </div>
+                <div class="barcode-card">
+                    <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
+                </div>` : `
+                <div style="flex:1;height:19mm;background:#fef2f2;border:1.2px dashed #f87171;border-radius:1.5mm;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1mm 2mm;text-align:center;">
+                    <span style="font-size:2.3mm;font-weight:900;color:#991b1b;letter-spacing:0.1mm;">NOT CREATED IN COURIER</span>
+                    <span style="font-size:1.75mm;font-weight:600;color:#b91c1c;margin-top:0.3mm;">Official Barcode & QR generated after sending to Courier</span>
+                    <span style="font-size:1.9mm;font-weight:700;color:#334155;margin-top:0.4mm;">Order ID: ${item.orderId}</span>
+                </div>`;
 
             stickersHtml += `
             <div class="sticker">
@@ -185,7 +301,7 @@ async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
                             <span class="fed-red">FARDAR EXPRESS</span> <span class="fed-blue">DOMESTIC</span>
                         </span>
                     </div>
-                    <span class="waybill-top">Waybill ID : ${waybill}</span>
+                    ${waybillHeaderHtml}
                 </div>
 
                 <!-- Recipient Section -->
@@ -217,12 +333,7 @@ async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
                         ${codText}
                     </div>
                     <div class="bottom-content">
-                        <div class="qr-card">
-                            <img class="qr-img" src="${qrUrl}" alt="QR" />
-                        </div>
-                        <div class="barcode-card">
-                            <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
-                        </div>
+                        ${bottomContentHtml}
                     </div>
                 </div>
             </div>`;
@@ -237,6 +348,8 @@ async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
         pagesHtml += `<div class="grid-container">${stickersHtml}</div>`;
     }
 
+    const waybillEmail = getWaybillEmail();
+
     const previewTopBar = isPreview ? `
     <div class="no-print" style="position: sticky; top: 0; z-index: 9999; background: #0f172a; color: #f8fafc; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
         <div style="display: flex; align-items: center; gap: 12px;">
@@ -244,14 +357,17 @@ async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
             <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-weight: 800; font-size: 15px; letter-spacing: -0.3px;">Waybill Stickers Preview</span>
-                    <span style="background: #0284c7; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase;">Test View Only</span>
+                    <span style="background: #0284c7; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase;">A4 Sheet</span>
                 </div>
                 <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
-                    Showing <strong>${ordersList.length}</strong> sticker(s) • <strong>9 stickers per A4 page</strong> • <em>No orders were sent to the courier dashboard yet.</em>
+                    Showing <strong>${ordersList.length}</strong> sticker(s) • <strong>9 stickers per A4 page</strong>
                 </div>
             </div>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
+            <button id="sendEmailBtn" onclick="sendWaybillEmail()" style="background: #6366f1; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;" title="Email this PDF document directly to ${waybillEmail}">
+                📧 Send PDF to ${waybillEmail}
+            </button>
             <button onclick="window.print()" style="background: #10b981; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                 🖨️ Print Sheet / Save PDF
             </button>
@@ -479,6 +595,47 @@ async function generateStickersHtml(ordersList, { isPreview = false } = {}) {
 <body>
     ${previewTopBar}
     ${pagesHtml}
+    ${isPreview ? `
+    <script>
+        async function sendWaybillEmail() {
+            const btn = document.getElementById('sendEmailBtn');
+            if (!btn) return;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.style.opacity = '0.75';
+            btn.innerHTML = '⏳ Generating PDF & Sending Email...';
+
+            try {
+                const res = await fetch('/orders/courier/email-preview-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderIds: '${orderIdsParam}' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    btn.style.background = '#10b981';
+                    btn.innerHTML = '✅ PDF Sent to ' + data.recipientEmail;
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.background = '#6366f1';
+                        btn.innerHTML = originalText;
+                    }, 6000);
+                } else {
+                    alert('Failed to send email: ' + (data.message || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.innerHTML = originalText;
+                }
+            } catch (err) {
+                alert('Network error while sending email: ' + err.message);
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerHTML = originalText;
+            }
+        }
+    </script>
+    ` : ""}
 </body>
 </html>`;
 }
@@ -526,8 +683,8 @@ exports.generateWaybills = async (req, res) => {
 
         for (const order of domesticOrders) {
             let waybillNo = order.waybillNo;
-            const amount = 0; // Default: prepaid via bank transfer / free delivery
-            const isFree = order.total >= 20000;
+            const amount = getOrderDeliveryFee(order);
+            const isFree = order.total >= 20000 || amount === 0;
             const parcelDesc = isFree
                 ? "Skincare Items - Free Delivery"
                 : "Skincare Items";
@@ -557,6 +714,17 @@ exports.generateWaybills = async (req, res) => {
             // Otherwise, call courier API to register parcel and get waybill
             try {
                 const recipientCity = extractCity(order.address, order.city);
+                const recipientPhone = sanitizePhone(order.phone) || order.phone;
+                const recipientSecPhone = sanitizePhone(order.secondaryPhone) || recipientPhone;
+                const recipientAddress = (order.address || "").replace(/[\r\n]+/g, ", ").trim();
+
+                // Pre-validate recipient phone for Sri Lanka domestic deliveries (Fardar requires 10 digits e.g. 07XXXXXXXX)
+                if (!recipientPhone || !/^0\d{9}$/.test(recipientPhone)) {
+                    const phoneErr = `Recipient phone "${order.phone}" is invalid (Courier Status 206). Fardar Courier requires a 10-digit Sri Lankan number (e.g. 0771234567). Please edit the customer's phone number first.`;
+                    errors.push({ orderId: order.orderId, error: phoneErr });
+                    continue;
+                }
+
                 const payload = new URLSearchParams({
                     api_key: process.env.FED_API_KEY || "250d649ca4df67b4e1b0",
                     client_id: process.env.FED_CLIENT_ID || "19384",
@@ -565,9 +733,9 @@ exports.generateWaybills = async (req, res) => {
                     parcel_weight: "1",
                     parcel_description: parcelDesc,
                     recipient_name: order.name,
-                    recipient_contact_1: order.phone,
-                    recipient_contact_2: order.secondaryPhone || order.phone,
-                    recipient_address: order.address,
+                    recipient_contact_1: recipientPhone,
+                    recipient_contact_2: recipientSecPhone,
+                    recipient_address: recipientAddress,
                     recipient_city: recipientCity,
                     pickup_name: process.env.FED_PICKUP_NAME || "SAMEE AND SANDU",
                     pickup_address:
@@ -579,7 +747,7 @@ exports.generateWaybills = async (req, res) => {
                 });
 
                 console.log(
-                    `Sending order ${order.orderId} to Fardar Courier API...`
+                    `Sending order ${order.orderId} to Fardar Courier API (City: ${recipientCity}, Phone: ${recipientPhone})...`
                 );
                 const courierRes = await axios.post(
                     courierApiUrl,
@@ -612,7 +780,8 @@ exports.generateWaybills = async (req, res) => {
                         });
                     }
                 } else {
-                    const errMsg = resData?.message || `Status ${resData?.status}`;
+                    const statusStr = String(resData?.status || "");
+                    const errMsg = FED_STATUS_MESSAGES[statusStr] || resData?.message || `Courier Status ${statusStr}`;
                     errors.push({ orderId: order.orderId, error: errMsg });
                 }
             } catch (err) {
@@ -639,8 +808,10 @@ exports.generateWaybills = async (req, res) => {
         }
 
         if (processedOrders.length === 0) {
-            return res.status(500).json({
-                message: "Failed to generate any waybills from courier API.",
+            const errSummary = errors.map(e => `${e.orderId}: ${e.error}`).join("; ");
+            return res.status(400).json({
+                success: false,
+                message: `Courier rejected parcel creation. ${errSummary || "Please verify recipient details."}`,
                 errors,
             });
         }
@@ -700,8 +871,7 @@ exports.generateWaybills = async (req, res) => {
         }
 
         // Send Email with PDF attachment if buffer exists
-        const recipientEmail =
-            process.env.WAYBILL_EMAIL || "sameeandsandu@gmail.com";
+        const recipientEmail = getWaybillEmail();
         let emailSent = false;
 
         try {
@@ -777,15 +947,15 @@ exports.previewWaybillsHtml = async (req, res) => {
             const sampleList = Array.from({ length: 9 }).map((_, i) => ({
                 orderId: `ORD0000${i + 1}`,
                 waybillNo: `1475950${i + 1}`,
-                amount: 0,
-                parcelDesc: "Skincare Items - Free Delivery",
+                amount: 400,
+                parcelDesc: "Skincare Items",
                 name: "KAVINDA PERERA",
                 phone: "0771234567",
                 secondaryPhone: "0719876543",
                 address: "No. 45/A, Galle Road, Colombo 03",
                 city: "Colombo",
             }));
-            const html = await generateStickersHtml(sampleList, { isPreview: true });
+            const html = await generateStickersHtml(sampleList, { isPreview: true, orderIdsParam: "sample" });
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             return res.send(html);
         }
@@ -821,25 +991,166 @@ exports.previewWaybillsHtml = async (req, res) => {
             `);
         }
 
-        const list = orders.map((o, idx) => ({
-            orderId: o.orderId,
-            waybillNo: o.waybillNo || `147595${String(idx + 1).padStart(2, "0")}`,
-            amount: 0,
-            parcelDesc:
-                o.total >= 20000
+        const list = orders.map((o) => {
+            const amount = getOrderDeliveryFee(o);
+            const isFree = o.total >= 20000 || amount === 0;
+            return {
+                orderId: o.orderId,
+                waybillNo: o.waybillNo || null,
+                amount,
+                parcelDesc: isFree
                     ? "Skincare Items - Free Delivery"
                     : "Skincare Items",
-            name: o.name,
-            phone: o.phone,
-            secondaryPhone: o.secondaryPhone,
-            address: o.address,
-            city: extractCity(o.address, o.city),
-        }));
+                name: o.name,
+                phone: o.phone,
+                secondaryPhone: o.secondaryPhone,
+                address: o.address,
+                city: extractCity(o.address, o.city),
+            };
+        });
 
-        const html = await generateStickersHtml(list, { isPreview: true });
+        const html = await generateStickersHtml(list, { isPreview: true, orderIdsParam: orderIdsParam });
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.send(html);
     } catch (error) {
         res.status(500).send("Error rendering waybill preview: " + error.message);
+    }
+};
+
+
+/**
+ * Endpoint: POST /orders/courier/email-preview-pdf
+ * Body: { orderIds: "ORD00001,ORD00002" | "sample" }
+ * Converts the preview sheet to A4 PDF and emails it to WAYBILL_EMAIL
+ */
+exports.emailPreviewWaybillPdf = async (req, res) => {
+    try {
+        const orderIdsParam = req.body.orderIds || req.query.orderIds;
+        if (!orderIdsParam) {
+            return res.status(400).json({ success: false, message: "No order IDs provided" });
+        }
+
+        let ordersList = [];
+        if (orderIdsParam === "sample" || orderIdsParam === "preview") {
+            ordersList = Array.from({ length: 9 }).map((_, i) => ({
+                orderId: `ORD0000${i + 1}`,
+                waybillNo: `1475950${i + 1}`,
+                amount: 400,
+                parcelDesc: "Skincare Items",
+                name: "KAVINDA PERERA",
+                phone: "0771234567",
+                secondaryPhone: "0719876543",
+                address: "No. 45/A, Galle Road, Colombo 03",
+                city: "Colombo",
+            }));
+        } else {
+            const orderIds = String(orderIdsParam).split(",").map((s) => s.trim()).filter(Boolean);
+            const orders = await Order.findAll({
+                where: { orderId: orderIds },
+            });
+
+            if (orders.length === 0) {
+                return res.status(404).json({ success: false, message: "Matching orders not found" });
+            }
+
+            ordersList = orders.map((o) => {
+                const amount = getOrderDeliveryFee(o);
+                const isFree = o.total >= 20000 || amount === 0;
+                return {
+                    orderId: o.orderId,
+                    waybillNo: o.waybillNo || null,
+                    amount,
+                    parcelDesc: isFree
+                        ? "Skincare Items - Free Delivery"
+                        : "Skincare Items",
+                    name: o.name,
+                    phone: o.phone,
+                    secondaryPhone: o.secondaryPhone,
+                    address: o.address,
+                    city: extractCity(o.address, o.city),
+                };
+            });
+        }
+
+        // Render HTML without preview toolbar
+        const fullHtml = await generateStickersHtml(ordersList, { isPreview: false });
+
+        // Launch Puppeteer with Chrome / Edge
+        const browserPath = getBrowserExecutablePath();
+        if (!browserPath) {
+            return res.status(500).json({
+                success: false,
+                message: "Chrome or Edge browser executable not found on server for PDF generation.",
+            });
+        }
+
+        const browser = await puppeteer.launch({
+            executablePath: browserPath,
+            headless: "new",
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+            ],
+        });
+        const page = await browser.newPage();
+        await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+        const pdfBuffer = await page.pdf({
+            format: "A4",
+            printBackground: true,
+            margin: { top: 0, bottom: 0, left: 0, right: 0 },
+        });
+        await browser.close();
+
+        // Save PDF to downloads directory
+        const pdfFilename = `Waybills_Preview_${Date.now()}_${ordersList.length}orders.pdf`;
+        const downloadDir = path.join(__dirname, "../downloads/waybills");
+        if (!fs.existsSync(downloadDir)) {
+            fs.mkdirSync(downloadDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(downloadDir, pdfFilename), pdfBuffer);
+
+        const recipientEmail = getWaybillEmail();
+        const subject = `Waybill Stickers PDF (${ordersList.length} Orders) — Samee & Sandu`;
+        const mailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #0f172a; margin: 0 0 6px 0;">🚚 Waybill Stickers Sheet</h2>
+                    <p style="color: #64748b; font-size: 14px; margin: 0;">Attached is the generated 9-per-A4 Waybill sticker document.</p>
+                </div>
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 20px; font-size: 13px; color: #334155;">
+                    <p style="margin: 0 0 8px 0;"><strong>Total Orders:</strong> ${ordersList.length}</p>
+                    <p style="margin: 0 0 8px 0;"><strong>File Name:</strong> ${pdfFilename}</p>
+                    <p style="margin: 0;"><strong>Orders Included:</strong> ${ordersList.map(o => o.orderId).join(", ")}</p>
+                </div>
+                <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">
+                    Generated from Korean Skincare Admin Dashboard • Sent to ${recipientEmail}
+                </p>
+            </div>
+        `;
+
+        await sendEmail({
+            to: recipientEmail,
+            subject,
+            text: `Waybill Stickers PDF for ${ordersList.length} orders attached.`,
+            html: mailHtml,
+            attachments: getEmailAttachments([
+                {
+                    filename: pdfFilename,
+                    content: pdfBuffer,
+                },
+            ]),
+        });
+
+        res.json({
+            success: true,
+            message: `Waybill PDF sent successfully to ${recipientEmail}`,
+            recipientEmail,
+            pdfFilename,
+        });
+    } catch (err) {
+        console.error("Critical error in emailPreviewWaybillPdf:", err);
+        res.status(500).json({ success: false, message: err.message });
     }
 };

@@ -1,12 +1,29 @@
+const fs = require("fs");
+const path = require("path");
+const dotenv = require("dotenv");
 const { sendEmail } = require("../utils/mailer");
 const { renderOrderEmail, getEmailAttachments } = require("../utils/emailTemplates");
+
+function getWaybillEmail() {
+    try {
+        const envPath = path.resolve(__dirname, "../.env");
+        if (fs.existsSync(envPath)) {
+            const envContent = fs.readFileSync(envPath, "utf-8");
+            const parsed = dotenv.parse(envContent);
+            if (parsed.WAYBILL_EMAIL && parsed.WAYBILL_EMAIL.trim()) {
+                return parsed.WAYBILL_EMAIL.trim();
+            }
+        }
+    } catch (e) {}
+    return process.env.WAYBILL_EMAIL || "d.chandima163@gmail.com";
+}
 
 exports.getConfig = async (req, res) => {
     try {
         res.json({
             whatsappNumber: process.env.WHATSAPP_NUMBER || "94771234567",
             orderEmail: process.env.ORDER_EMAIL || "orders@yourbusiness.com",
-            waybillEmail: process.env.WAYBILL_EMAIL || "sameeandsandu@gmail.com"
+            waybillEmail: getWaybillEmail()
         });
     } catch (error) {
         res.status(500).json({ message: "Failed to fetch config" });

@@ -10,12 +10,14 @@ const {
 const {
     generateWaybills,
     previewWaybillsHtml,
+    emailPreviewWaybillPdf,
 } = require("../controllers/waybillController");
 
 const orderRouter = express.Router();
 
 orderRouter.post("/courier/generate-waybills", generateWaybills);
 orderRouter.get("/courier/preview-waybills", previewWaybillsHtml);
+orderRouter.post("/courier/email-preview-pdf", emailPreviewWaybillPdf);
 
 orderRouter.post("/", createOrder);
 orderRouter.get("/:page/:limit", getOrders);
