@@ -117,6 +117,7 @@ exports.createOrder = async (req, res) => {
 
         const items = [];
         let total = 0;
+        let totalProductWeight = 0;
 
         for (const item of req.body.items) {
             const product = await Product.findOne({ where: { productId: item.productId } });
@@ -131,15 +132,20 @@ exports.createOrder = async (req, res) => {
             }
             if (!Array.isArray(productImages)) productImages = [];
 
+            const pWeight = Number(product.weight) || 0;
+            const itemQty = Number(item.qty) || 1;
+            totalProductWeight += pWeight * itemQty;
+
             items.push({
                 productId: product.productId,
                 productName: product.name,
                 image: productImages[0] || null,
                 price: product.price,
-                qty: item.qty,
+                qty: itemQty,
+                weight: pWeight,
             });
 
-            total += product.price * item.qty;
+            total += product.price * itemQty;
         }
 
         const country = req.body.country || "Sri Lanka";
@@ -159,16 +165,44 @@ exports.createOrder = async (req, res) => {
             "Ampara": 500, "Monaragala": 500
         };
 
-        // Delivery fee calculation: Free for orders >= 20,000 LKR or International; otherwise exact district rate
+        // Packaging & Box calculation helper:
+        // 1 box holds max 850g product (150g box weight -> 1000g gross)
+        // 2 boxes add 200g box weight (holds max 1800g product -> 2000g gross)
+        // 3 boxes add 250g box weight (holds max 2750g product -> 3000g gross)
+        // N boxes: boxWeight = 100 + (N * 50)g
+        function calculatePackagingAndWeight(productWeightGrams = 0) {
+            const netWeight = Math.max(0, Number(productWeightGrams) || 0);
+            if (netWeight === 0) return { boxes: 1, boxWeight: 150, grossWeight: 150 };
+
+            let boxes = 1;
+            while (true) {
+                const boxWeight = 100 + (boxes * 50);
+                const maxCapacity = (boxes * 1000) - boxWeight;
+                if (netWeight <= maxCapacity) {
+                    return {
+                        boxes,
+                        boxWeight,
+                        grossWeight: netWeight + boxWeight
+                    };
+                }
+                boxes++;
+            }
+        }
+
+        const packagingInfo = calculatePackagingAndWeight(totalProductWeight);
+
+        // Delivery fee calculation: Free for orders >= 20,000 LKR or International;
+        // Otherwise exact district rate + Rs. 100 per extra 1kg (or fraction thereof) above 1kg gross
         let deliveryFee = 0;
         if (isDomestic && total > 0 && total < 20000) {
+            let baseFee = 400;
             if (district && DISTRICT_DELIVERY_FEES[district]) {
-                deliveryFee = DISTRICT_DELIVERY_FEES[district];
+                baseFee = DISTRICT_DELIVERY_FEES[district];
             } else if (req.body.deliveryFee !== undefined && !isNaN(Number(req.body.deliveryFee))) {
-                deliveryFee = Number(req.body.deliveryFee);
-            } else {
-                deliveryFee = 400; // standard base rate fallback
+                baseFee = Number(req.body.deliveryFee);
             }
+            const extraKgs = Math.max(0, Math.ceil(packagingInfo.grossWeight / 1000) - 1);
+            deliveryFee = baseFee + (extraKgs * 100);
         }
         const grandTotal = total + deliveryFee;
 
