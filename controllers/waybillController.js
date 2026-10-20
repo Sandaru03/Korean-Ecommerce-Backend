@@ -7,27 +7,7 @@ const dotenv = require("dotenv");
 const Order = require("../models/order");
 const { sendEmail } = require("../utils/mailer");
 const { renderWaybillEmail, getEmailAttachments } = require("../utils/emailTemplates");
-
-/**
- * Dynamically fetch WAYBILL_EMAIL directly from .env file so any change in .env
- * reflects immediately without requiring a backend server restart.
- */
-function getWaybillEmail() {
-    try {
-        const envPath = path.resolve(__dirname, "../.env");
-        if (fs.existsSync(envPath)) {
-            const envContent = fs.readFileSync(envPath, "utf-8");
-            const parsed = dotenv.parse(envContent);
-            if (parsed.WAYBILL_EMAIL && parsed.WAYBILL_EMAIL.trim()) {
-                process.env.WAYBILL_EMAIL = parsed.WAYBILL_EMAIL.trim();
-                return parsed.WAYBILL_EMAIL.trim();
-            }
-        }
-    } catch (err) {
-        console.error("Error reading .env for WAYBILL_EMAIL:", err.message);
-    }
-    return process.env.WAYBILL_EMAIL || "d.chandima163@gmail.com";
-}
+const { getWaybillEmail } = require("../utils/envHelper");
 
 /**
  * Locate Chrome or Edge executable on Windows

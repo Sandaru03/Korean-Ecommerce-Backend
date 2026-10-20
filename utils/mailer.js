@@ -1,35 +1,42 @@
 const nodemailer = require("nodemailer");
+const { getSmtpConfig } = require("./envHelper");
 
 /**
- * Reusable mailer utility
- * Configures a transporter using environment variables and provides a sendEmail function.
+ * Reusable dynamic mailer utility
+ * Dynamically updates SMTP credentials if changed in .env without server restart.
  */
 
-if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.error("CRITICAL: SMTP_USER or SMTP_PASS is missing from environment variables!");
+let currentTransporter = null;
+let currentKey = "";
+
+function getTransporter() {
+    const config = getSmtpConfig();
+    const key = `${config.host}:${config.port}:${config.user}:${config.pass}`;
+
+    if (!currentTransporter || currentKey !== key) {
+        if (!config.user || !config.pass) {
+            console.warn("[Mailer] Warning: SMTP_USER or SMTP_PASS is missing in .env");
+        }
+        currentTransporter = nodemailer.createTransport({
+            host: config.host || "smtp.gmail.com",
+            port: config.port || 587,
+            secure: config.port === 465,
+            auth: {
+                user: config.user,
+                pass: config.pass,
+            },
+            tls: {
+                rejectUnauthorized: false
+            }
+        });
+        currentKey = key;
+        console.log(`[Mailer] Initialized SMTP transporter for user: ${config.user || 'none'}`);
+    }
+    return currentTransporter;
 }
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: parseInt(process.env.SMTP_PORT) === 465, 
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-    tls: {
-        rejectUnauthorized: false
-    }
-});
-
-// Verify connection configuration
-transporter.verify(function (error, success) {
-    if (error) {
-        console.error("SMTP Verification Error:", error);
-    } else {
-        console.log("SMTP Server is ready to take our messages");
-    }
-});
+// Initial transporter initialization
+getTransporter();
 
 /**
  * Send an email
@@ -37,7 +44,9 @@ transporter.verify(function (error, success) {
  * @returns {Promise} - Resolves with info if successful
  */
 const sendEmail = async (options) => {
-    const fromEmail = process.env.SMTP_USER || "noreply@sameeandsandu.com";
+    const transporter = getTransporter();
+    const config = getSmtpConfig();
+    const fromEmail = config.user || "noreply@sameeandsandu.com";
     const mailOptions = {
         from: `"Samee and Sandu" <${fromEmail}>`,
         to: options.to,
@@ -57,4 +66,4 @@ const sendEmail = async (options) => {
     }
 };
 
-module.exports = { sendEmail };
+module.exports = { sendEmail, getTransporter };

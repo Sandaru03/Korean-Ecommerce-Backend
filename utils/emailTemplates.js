@@ -171,8 +171,9 @@ const renderOrderEmail = ({
     // ── Help Card ──
     let helpHtml = "";
     if (showHelp) {
-        const whatsappNumber = process.env.WHATSAPP_NUMBER || "94713592022";
-        const orderEmail = process.env.ORDER_EMAIL || "d.chandima163@gmail.com";
+        const { getWhatsAppNumber, getOrderEmail } = require("./envHelper");
+        const whatsappNumber = getWhatsAppNumber();
+        const orderEmail = getOrderEmail();
         const cleanWa = whatsappNumber.replace(/[^0-9]/g, "");
         helpHtml = `
         <div style="margin-top:24px;background:#fff8f6;border-radius:12px;padding:20px;border:1px solid #ffdcd4;">

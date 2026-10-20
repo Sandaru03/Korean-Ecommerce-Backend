@@ -17,9 +17,11 @@ router.get("/debug-env", (req, res) => {
 
 router.get("/test-email", async (req, res) => {
     const { sendEmail } = require("../utils/mailer");
+    const { getOrderEmail } = require("../utils/envHelper");
     try {
+        const targetEmail = getOrderEmail();
         await sendEmail({
-            to: process.env.ORDER_EMAIL || "d.chandima163@gmail.com",
+            to: targetEmail,
             subject: "Test Email from Server",
             text: "If you are reading this, the SMTP connection is working!",
             html: "<b>SMTP Connection is working!</b>"
