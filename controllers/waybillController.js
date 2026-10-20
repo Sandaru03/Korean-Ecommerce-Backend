@@ -925,7 +925,7 @@ exports.previewWaybillsHtml = async (req, res) => {
 
         if (orderIdsParam === "sample" || orderIdsParam === "preview") {
             const sampleList = Array.from({ length: 9 }).map((_, i) => ({
-                orderId: `ORD0000${i + 1}`,
+                orderId: `ORD${2000 + i + 1}`,
                 waybillNo: `1475950${i + 1}`,
                 amount: 400,
                 parcelDesc: "Skincare Items",
@@ -1013,7 +1013,7 @@ exports.emailPreviewWaybillPdf = async (req, res) => {
         let ordersList = [];
         if (orderIdsParam === "sample" || orderIdsParam === "preview") {
             ordersList = Array.from({ length: 9 }).map((_, i) => ({
-                orderId: `ORD0000${i + 1}`,
+                orderId: `ORD${2000 + i + 1}`,
                 waybillNo: `1475950${i + 1}`,
                 amount: 400,
                 parcelDesc: "Skincare Items",

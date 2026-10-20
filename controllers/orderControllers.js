@@ -100,16 +100,21 @@ exports.createOrder = async (req, res) => {
             return res.status(401).json({ message: "Please Login to create an order" });
         }
 
-        // Generate next orderId
-        const latestOrder = await Order.findOne({ order: [["date", "DESC"]] });
-        let orderId = "ORD00001";
+        // Generate next orderId (starts from 2000)
+        const STARTING_ORDER_NUMBER = 2000;
+        const latestOrder = await Order.findOne({ order: [["id", "DESC"]] });
+        let nextNum = STARTING_ORDER_NUMBER;
 
-        if (latestOrder) {
-            const lastNum = parseInt(latestOrder.orderId.replace("ORD", ""));
-            if (!isNaN(lastNum)) {
-                orderId = "ORD" + (lastNum + 1).toString().padStart(5, "0");
+        if (latestOrder && latestOrder.orderId) {
+            const matches = latestOrder.orderId.match(/\d+/);
+            if (matches) {
+                const lastNum = parseInt(matches[0], 10);
+                if (!isNaN(lastNum) && lastNum >= STARTING_ORDER_NUMBER) {
+                    nextNum = lastNum + 1;
+                }
             }
         }
+        const orderId = `ORD${nextNum}`;
 
         if (!req.body.items || !Array.isArray(req.body.items)) {
             return res.status(400).json({ message: "Invalid item format" });
