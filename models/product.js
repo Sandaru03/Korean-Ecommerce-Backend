@@ -85,6 +85,11 @@ const Product = sequelize.define(
             type: DataTypes.STRING,
             allowNull: true,
         },
+        weight: {
+            type: DataTypes.FLOAT,
+            defaultValue: 0,
+            allowNull: true,
+        },
     },
     {
         timestamps: false,

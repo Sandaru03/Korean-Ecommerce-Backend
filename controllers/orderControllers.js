@@ -144,9 +144,32 @@ exports.createOrder = async (req, res) => {
 
         const country = req.body.country || "Sri Lanka";
         const isDomestic = !country || country.trim().toLowerCase().includes("sri lanka");
+        const district = req.body.district || null;
 
-        // Delivery fee: 400 LKR if domestic Sri Lanka and subtotal < 20000 LKR. For international orders, delivery fee is 0.
-        const deliveryFee = (isDomestic && total > 0 && total < 20000) ? 400 : 0;
+        // Sri Lanka 25 Districts Delivery Rates (LKR)
+        const DISTRICT_DELIVERY_FEES = {
+            "Colombo": 400, "Gampaha": 400, "Kalutara": 400,
+            "Kandy": 450, "Matale": 450, "Nuwara Eliya": 450,
+            "Galle": 450, "Matara": 450, "Hambantota": 450,
+            "Trincomalee": 450, "Kurunegala": 450, "Puttalam": 450,
+            "Anuradhapura": 450, "Polonnaruwa": 450, "Badulla": 450,
+            "Ratnapura": 450, "Kegalle": 450,
+            "Jaffna": 500, "Kilinochchi": 500, "Mannar": 500,
+            "Vavuniya": 500, "Mullaitivu": 500, "Batticaloa": 500,
+            "Ampara": 500, "Monaragala": 500
+        };
+
+        // Delivery fee calculation: Free for orders >= 20,000 LKR or International; otherwise exact district rate
+        let deliveryFee = 0;
+        if (isDomestic && total > 0 && total < 20000) {
+            if (district && DISTRICT_DELIVERY_FEES[district]) {
+                deliveryFee = DISTRICT_DELIVERY_FEES[district];
+            } else if (req.body.deliveryFee !== undefined && !isNaN(Number(req.body.deliveryFee))) {
+                deliveryFee = Number(req.body.deliveryFee);
+            } else {
+                deliveryFee = 400; // standard base rate fallback
+            }
+        }
         const grandTotal = total + deliveryFee;
 
         const city = req.body.city || null;

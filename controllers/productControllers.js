@@ -10,6 +10,7 @@ function normalizeProductData(raw = {}) {
     if (data.labellPrice !== undefined) data.labellPrice = Number(data.labellPrice);
     if (data.price !== undefined) data.price = Number(data.price);
     if (data.stock !== undefined) data.stock = Number(data.stock);
+    if (data.weight !== undefined) data.weight = Number(data.weight) || 0;
     if (data.superCategory === undefined) data.superCategory = "";
     if (data.subCategory === undefined) data.subCategory = "";
     if (data.miniDescription === undefined) data.miniDescription = "";
@@ -176,7 +177,7 @@ exports.updateProduct = async (req, res) => {
         const allowedFields = [
             "name", "altNames", "description", "miniDescription", "price",
             "labellPrice", "stock", "isAvailable", "images", "category",
-            "subCategory", "superCategory", "productId"
+            "subCategory", "superCategory", "productId", "weight"
         ];
 
         for (const field of allowedFields) {
@@ -189,6 +190,7 @@ exports.updateProduct = async (req, res) => {
         if (updateData.labellPrice !== undefined) updateData.labellPrice = Number(updateData.labellPrice);
         if (updateData.price !== undefined) updateData.price = Number(updateData.price);
         if (updateData.stock !== undefined) updateData.stock = Number(updateData.stock);
+        if (updateData.weight !== undefined) updateData.weight = Number(updateData.weight) || 0;
         if (typeof updateData.isAvailable === "string") {
             updateData.isAvailable = updateData.isAvailable.toLowerCase() === "true";
         }
