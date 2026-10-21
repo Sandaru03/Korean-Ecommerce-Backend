@@ -17,8 +17,15 @@ exports.getConfig = async (req, res) => {
 };
 
 exports.sendOrderEmail = async (req, res) => {
-    console.log("Received send-order-email request:", JSON.stringify(req.body, null, 2));
-    const { summary, email, slipImageUrl, orderData } = req.body;
+    let { summary, email, slipImageUrl, orderData } = req.body;
+
+    if (slipImageUrl) {
+        if (slipImageUrl.includes("localhost") || slipImageUrl.includes("127.0.0.1")) {
+            slipImageUrl = slipImageUrl.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/gi, "https://sameeandsandu.com");
+        } else if (slipImageUrl.startsWith("/uploads")) {
+            slipImageUrl = `https://sameeandsandu.com${slipImageUrl}`;
+        }
+    }
 
     // Support both legacy (summary-only) and new (orderData) formats
     if (!summary && !orderData) {

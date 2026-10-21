@@ -34,6 +34,7 @@ const sendBankTransferPendingEmail = async (order) => {
             },
             items: parsedItems,
             grandTotal: order.total,
+            slipImageUrl: order.paymentSlip || null,
             showHelp: true
         });
 

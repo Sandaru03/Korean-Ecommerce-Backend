@@ -594,7 +594,9 @@ async function generateStickersHtml(ordersList, { isPreview = false, orderIdsPar
 </head>
 <body>
     ${previewTopBar}
-    ${pagesHtml}
+    <div id="printableWaybills">
+        ${pagesHtml}
+    </div>
     ${isPreview ? `
     <script>
         async function sendWaybillEmail() {
@@ -627,17 +629,16 @@ async function generateStickersHtml(ordersList, { isPreview = false, orderIdsPar
                     }
 
                     // Hide top preview toolbar during capture
-                    const topBar = document.querySelector('.preview-bar');
+                    const topBar = document.querySelector('.no-print');
                     if (topBar) topBar.style.display = 'none';
 
-                    const a4Sheets = document.querySelectorAll('.a4-sheet');
-                    const elementToCapture = a4Sheets.length > 0 ? (a4Sheets.length === 1 ? a4Sheets[0] : document.body) : document.body;
+                    const elementToCapture = document.getElementById('printableWaybills') || document.body;
 
                     const opt = {
                         margin: 0,
                         filename: 'waybills.pdf',
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true },
+                        image: { type: 'jpeg', quality: 0.95 },
+                        html2canvas: { scale: 1.5, useCORS: true },
                         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                     };
 

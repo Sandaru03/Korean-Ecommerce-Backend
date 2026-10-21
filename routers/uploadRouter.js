@@ -21,7 +21,17 @@ router.post('/local', uploadProductImages.array('images', 10), async (req, res) 
     }
 
     try {
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+        let baseUrl = process.env.BASE_URL;
+        if (!baseUrl || baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+            const host = req.get('host');
+            if (host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
+                const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+                baseUrl = `${proto}://${host}`;
+            } else {
+                baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+            }
+        }
+        baseUrl = baseUrl.replace(/\/+$/, "");
 
         const urls = await Promise.all(req.files.map(async (file) => {
             try {

@@ -13,6 +13,26 @@ const fmt = (n) => {
 };
 
 /**
+ * Normalize any image URL so localhost or relative links are converted to live domain
+ */
+const normalizeEmailImageUrl = (url) => {
+    if (!url || typeof url !== "string") return "";
+    let clean = url.trim().replace(/\\/g, "/");
+    if (clean.includes("localhost") || clean.includes("127.0.0.1")) {
+        clean = clean.replace(/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/gi, "https://sameeandsandu.com");
+    } else if (clean.startsWith("/")) {
+        clean = `https://sameeandsandu.com${clean}`;
+    } else if (clean.startsWith("uploads/")) {
+        clean = `https://sameeandsandu.com/${clean}`;
+    } else if (clean.startsWith("http://sameeandsandu.com")) {
+        clean = clean.replace("http://sameeandsandu.com", "https://sameeandsandu.com");
+    }
+    return clean;
+};
+
+const LOGO_PUBLIC_URL = "https://sameeandsandu.com/assets/email-logo.png";
+
+/**
  * Return the inline logo attachment for Nodemailer
  */
 const getLogoAttachment = () => {
@@ -21,7 +41,9 @@ const getLogoAttachment = () => {
         return {
             filename: "logo.png",
             path: logoPath,
-            cid: "sitelogo"
+            cid: "sitelogo",
+            contentType: "image/png",
+            contentDisposition: "inline"
         };
     }
     return null;
@@ -106,7 +128,8 @@ const renderOrderEmail = ({
         const itemQty = Number(item.qty) || 1;
         const itemPrice = Number(item.price) || 0;
         const lineTotal = itemPrice * itemQty;
-        const imgSrc = item.image || (Array.isArray(item.images) ? item.images[0] : null) || "";
+        const rawImg = item.image || (Array.isArray(item.images) ? item.images[0] : null) || "";
+        const imgSrc = normalizeEmailImageUrl(rawImg);
 
         const imgHtml = imgSrc
             ? `<img src="${imgSrc}" alt="${itemName}" width="76" height="76" style="width:76px;height:76px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;display:block;" />`
@@ -160,11 +183,12 @@ const renderOrderEmail = ({
     // ── Payment Slip Section ──
     let slipHtml = "";
     if (slipImageUrl) {
+        const cleanSlipUrl = normalizeEmailImageUrl(slipImageUrl);
         slipHtml = `
         <div style="margin-top:24px;padding:20px;background:#f8f9fa;border-radius:12px;border:1px solid #e9ecef;">
             <p style="margin:0 0 12px;font-weight:700;font-size:14px;color:#c0392b;">📎 Attached Payment Slip</p>
-            <img src="${slipImageUrl}" alt="Payment Slip" style="max-width:400px;width:100%;border-radius:8px;border:1px solid #e5e7eb;display:block;" />
-            <p style="margin:10px 0 0;"><a href="${slipImageUrl}" target="_blank" style="color:#c0392b;font-size:13px;font-weight:600;text-decoration:underline;">View Full Image ↗</a></p>
+            <img src="${cleanSlipUrl}" alt="Payment Slip" style="max-width:400px;width:100%;border-radius:8px;border:1px solid #e5e7eb;display:block;" />
+            <p style="margin:10px 0 0;"><a href="${cleanSlipUrl}" target="_blank" style="color:#c0392b;font-size:13px;font-weight:600;text-decoration:underline;">View Full Image ↗</a></p>
         </div>`;
     }
 
@@ -211,7 +235,7 @@ const renderOrderEmail = ({
             <div style="background:linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);padding:30px 32px 26px 32px;text-align:center;">
                 <!-- Site Logo -->
                 <div style="text-align:center;margin-bottom:12px;">
-                    <img src="cid:sitelogo" alt="Samee and Sandu" width="160" height="44" style="height:44px;max-width:180px;object-fit:contain;margin:0 auto;display:block;" />
+                    <img src="${LOGO_PUBLIC_URL}" alt="Samee and Sandu" width="160" height="44" style="height:44px;max-width:180px;object-fit:contain;margin:0 auto;display:block;" />
                 </div>
                 <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1.3;">${title}</h1>
                 <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">${subtitle}</p>
@@ -366,7 +390,7 @@ const renderWaybillEmail = ({
             <!-- Brand Crimson Header -->
             <div style="background:linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);padding:30px 32px 26px 32px;text-align:center;">
                 <div style="text-align:center;margin-bottom:12px;">
-                    <img src="cid:sitelogo" alt="Samee and Sandu" width="160" height="44" style="height:44px;max-width:180px;object-fit:contain;margin:0 auto;display:block;" />
+                    <img src="${LOGO_PUBLIC_URL}" alt="Samee and Sandu" width="160" height="44" style="height:44px;max-width:180px;object-fit:contain;margin:0 auto;display:block;" />
                 </div>
                 <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">${title}</h1>
                 <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">${subtitle}</p>
