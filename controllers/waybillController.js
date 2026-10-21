@@ -13,11 +13,31 @@ const { getWaybillEmail } = require("../utils/envHelper");
  * Locate Chrome or Edge executable on Windows
  */
 function getBrowserExecutablePath() {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+        return process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
+        return process.env.CHROME_PATH;
+    }
+
     const possiblePaths = [
+        // Linux standard paths (Ubuntu, Debian, CentOS, cPanel, CloudLinux)
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/snap/bin/chromium",
+        "/usr/local/bin/chromium",
+        "/usr/local/bin/chrome",
+        // Windows standard paths
         "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
         "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
         "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
         "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        // macOS standard paths
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
     ];
     for (const p of possiblePaths) {
         if (fs.existsSync(p)) return p;
@@ -586,12 +606,53 @@ async function generateStickersHtml(ordersList, { isPreview = false, orderIdsPar
             btn.innerHTML = '⏳ Generating PDF & Sending Email...';
 
             try {
-                const res = await fetch('/orders/courier/email-preview-pdf', {
+                let res = await fetch('/orders/courier/email-preview-pdf', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ orderIds: '${orderIdsParam}' })
                 });
-                const data = await res.json();
+                let data = await res.json();
+
+                // If server lacks Chrome/Edge, generate PDF in browser and send to backend
+                if (!data.success && data.needsClientPdf) {
+                    btn.innerHTML = '⏳ Converting PDF in browser & sending...';
+                    if (!window.html2pdf) {
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                    }
+
+                    // Hide top preview toolbar during capture
+                    const topBar = document.querySelector('.preview-bar');
+                    if (topBar) topBar.style.display = 'none';
+
+                    const a4Sheets = document.querySelectorAll('.a4-sheet');
+                    const elementToCapture = a4Sheets.length > 0 ? (a4Sheets.length === 1 ? a4Sheets[0] : document.body) : document.body;
+
+                    const opt = {
+                        margin: 0,
+                        filename: 'waybills.pdf',
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    const pdfDataUri = await html2pdf().from(elementToCapture).set(opt).outputPdf('datauristring');
+                    if (topBar) topBar.style.display = 'flex';
+
+                    const base64Content = pdfDataUri.split(',')[1];
+                    res = await fetch('/orders/courier/email-preview-pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderIds: '${orderIdsParam}', pdfBase64: base64Content })
+                    });
+                    data = await res.json();
+                }
+
                 if (data.success) {
                     btn.style.background = '#10b981';
                     btn.innerHTML = '✅ PDF Sent to ' + data.recipientEmail;
@@ -1052,36 +1113,51 @@ exports.emailPreviewWaybillPdf = async (req, res) => {
             });
         }
 
-        // Render HTML without preview toolbar
-        const fullHtml = await generateStickersHtml(ordersList, { isPreview: false });
+        let pdfBuffer = null;
+        if (req.body.pdfBase64) {
+            pdfBuffer = Buffer.from(req.body.pdfBase64, 'base64');
+        } else {
+            // Render HTML without preview toolbar
+            const fullHtml = await generateStickersHtml(ordersList, { isPreview: false });
 
-        // Launch Puppeteer with Chrome / Edge
-        const browserPath = getBrowserExecutablePath();
-        if (!browserPath) {
-            return res.status(500).json({
-                success: false,
-                message: "Chrome or Edge browser executable not found on server for PDF generation.",
-            });
+            // Launch Puppeteer with Chrome / Edge / Chromium
+            const browserPath = getBrowserExecutablePath();
+            if (!browserPath) {
+                return res.status(200).json({
+                    success: false,
+                    needsClientPdf: true,
+                    message: "Chrome or Edge browser executable not found on server. Switching to browser PDF generator...",
+                });
+            }
+
+            try {
+                const browser = await puppeteer.launch({
+                    executablePath: browserPath,
+                    headless: "new",
+                    args: [
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-gpu",
+                        "--disable-dev-shm-usage",
+                    ],
+                });
+                const page = await browser.newPage();
+                await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+                pdfBuffer = await page.pdf({
+                    format: "A4",
+                    printBackground: true,
+                    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+                });
+                await browser.close();
+            } catch (puppeteerErr) {
+                console.warn("Server Puppeteer launch failed, requesting client PDF:", puppeteerErr.message);
+                return res.status(200).json({
+                    success: false,
+                    needsClientPdf: true,
+                    message: "Server PDF generation failed (" + puppeteerErr.message + "). Switching to browser PDF generator...",
+                });
+            }
         }
-
-        const browser = await puppeteer.launch({
-            executablePath: browserPath,
-            headless: "new",
-            args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-            ],
-        });
-        const page = await browser.newPage();
-        await page.setContent(fullHtml, { waitUntil: "networkidle0" });
-        const pdfBuffer = await page.pdf({
-            format: "A4",
-            printBackground: true,
-            margin: { top: 0, bottom: 0, left: 0, right: 0 },
-        });
-        await browser.close();
 
         // Save PDF to downloads directory
         const pdfFilename = `Waybills_Preview_${Date.now()}_${ordersList.length}orders.pdf`;

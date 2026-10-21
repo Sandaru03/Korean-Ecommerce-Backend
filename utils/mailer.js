@@ -17,10 +17,15 @@ function getTransporter() {
         if (!config.user || !config.pass) {
             console.warn("[Mailer] Warning: SMTP_USER or SMTP_PASS is missing in .env");
         }
-        currentTransporter = nodemailer.createTransport({
+
+        // Note: Do NOT use service: "gmail" on cPanel hosts because it defaults to port 465,
+        // which is blocked by most cPanel host firewalls (causing ECONNREFUSED).
+        // Port 587 with STARTTLS (secure: false) works reliably across all hosting providers.
+        const port = parseInt(config.port, 10) || 587;
+        const transportOptions = {
             host: config.host || "smtp.gmail.com",
-            port: config.port || 587,
-            secure: config.port === 465,
+            port: port,
+            secure: port === 465, // true for 465, false for 587
             auth: {
                 user: config.user,
                 pass: config.pass,
@@ -28,9 +33,11 @@ function getTransporter() {
             tls: {
                 rejectUnauthorized: false
             }
-        });
+        };
+
+        currentTransporter = nodemailer.createTransport(transportOptions);
         currentKey = key;
-        console.log(`[Mailer] Initialized SMTP transporter for user: ${config.user || 'none'}`);
+        console.log(`[Mailer] Initialized SMTP transporter (${config.host}:${port}) for user: ${config.user || 'none'}`);
     }
     return currentTransporter;
 }

@@ -3,11 +3,26 @@ const path = require("path");
 const puppeteer = require("puppeteer-core");
 
 function getBrowserExecutablePath() {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+        return process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
+        return process.env.CHROME_PATH;
+    }
+
     const possiblePaths = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/snap/bin/chromium",
+        "/usr/local/bin/chromium",
+        "/usr/local/bin/chrome",
         "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
         "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
         "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
         "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     ];
     for (const p of possiblePaths) {
         if (fs.existsSync(p)) return p;

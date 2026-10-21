@@ -21,8 +21,9 @@ function getFreshEnv() {
                 cachedEnv = parsed;
                 lastMtime = stats.mtimeMs;
                 // Synchronize into process.env so third-party access also gets the latest values
+                // Only set process.env if not already defined in system environment (e.g. cPanel)
                 for (const [k, v] of Object.entries(parsed)) {
-                    if (v !== undefined) {
+                    if (v !== undefined && !process.env[k]) {
                         process.env[k] = v;
                     }
                 }
@@ -37,26 +38,42 @@ function getFreshEnv() {
 
 function getOrderEmail() {
     const env = getFreshEnv();
-    return (env.ORDER_EMAIL && env.ORDER_EMAIL.trim()) || process.env.ORDER_EMAIL || "d.chandima163@gmail.com";
+    return (process.env.ORDER_EMAIL && process.env.ORDER_EMAIL.trim()) || (env.ORDER_EMAIL && env.ORDER_EMAIL.trim()) || "d.chandima163@gmail.com";
 }
 
 function getWhatsAppNumber() {
     const env = getFreshEnv();
-    return (env.WHATSAPP_NUMBER && env.WHATSAPP_NUMBER.trim()) || process.env.WHATSAPP_NUMBER || "94713592022";
+    return (process.env.WHATSAPP_NUMBER && process.env.WHATSAPP_NUMBER.trim()) || (env.WHATSAPP_NUMBER && env.WHATSAPP_NUMBER.trim()) || "94713592022";
 }
 
 function getWaybillEmail() {
     const env = getFreshEnv();
-    return (env.WAYBILL_EMAIL && env.WAYBILL_EMAIL.trim()) || process.env.WAYBILL_EMAIL || "d.chandima163@gmail.com";
+    return (process.env.WAYBILL_EMAIL && process.env.WAYBILL_EMAIL.trim()) || (env.WAYBILL_EMAIL && env.WAYBILL_EMAIL.trim()) || "d.chandima163@gmail.com";
 }
 
 function getSmtpConfig() {
     const env = getFreshEnv();
+    // Prioritize process.env (cPanel Setup Node.js App environment variables) over disk .env
+    const rawUser = (process.env.SMTP_USER || env.SMTP_USER || "").trim();
+    let rawPass = (process.env.SMTP_PASS || env.SMTP_PASS || "").trim();
+
+    // Strip surrounding quotes if present in .env
+    if ((rawPass.startsWith('"') && rawPass.endsWith('"')) || (rawPass.startsWith("'") && rawPass.endsWith("'"))) {
+        rawPass = rawPass.slice(1, -1).trim();
+    }
+
+    // For Gmail 16-character App Passwords (e.g., 'xxxx xxxx xxxx xxxx'), strip internal spaces
+    const host = process.env.SMTP_HOST || env.SMTP_HOST || "smtp.gmail.com";
+    const isGmail = host.includes("gmail") || rawUser.endsWith("@gmail.com");
+    if (isGmail && rawPass.replace(/\s+/g, '').length === 16) {
+        rawPass = rawPass.replace(/\s+/g, '');
+    }
+
     return {
-        host: env.SMTP_HOST || process.env.SMTP_HOST || "smtp.gmail.com",
-        port: parseInt(env.SMTP_PORT || process.env.SMTP_PORT) || 587,
-        user: env.SMTP_USER || process.env.SMTP_USER || "",
-        pass: env.SMTP_PASS || process.env.SMTP_PASS || ""
+        host,
+        port: parseInt(process.env.SMTP_PORT || env.SMTP_PORT, 10) || 587,
+        user: rawUser,
+        pass: rawPass
     };
 }
 
