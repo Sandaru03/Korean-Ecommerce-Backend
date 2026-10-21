@@ -38,6 +38,7 @@ const TimeDeal = sequelize.define(
     },
     {
         timestamps: true,
+        tableName: 'timedeals',
     }
 );
 

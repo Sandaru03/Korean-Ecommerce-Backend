@@ -26,6 +26,7 @@ const GridBanner = sequelize.define(
     },
     {
         timestamps: true,
+        tableName: 'gridbanners',
     }
 );
 

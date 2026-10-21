@@ -62,6 +62,7 @@ const HomePageTopic = sequelize.define('HomePageTopic', {
   }
 }, {
   timestamps: true,
+  tableName: 'homepagetopics',
 });
 
 module.exports = HomePageTopic;
