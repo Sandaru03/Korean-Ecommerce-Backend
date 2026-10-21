@@ -16,12 +16,12 @@ const sendBankTransferPendingEmail = async (order) => {
         }
 
         const { html, text } = renderOrderEmail({
-            title: "⏳ Order Pending Verification",
-            subtitle: "Samee and Sandu — Order Verification",
+            title: "⏳ Order Received",
+            subtitle: "Samee and Sandu — Waiting for Payment Confirmation",
             orderId: order.orderId,
             statusAlert: {
                 type: "pending",
-                message: `Hello <strong>${order.name || "Valued Customer"}</strong>,<br/>Your order <strong>${order.orderId}</strong> has been placed successfully! We are currently checking your bank transfer. Your items will be processed and dispatched as soon as the transfer is approved.`
+                message: `Hello <strong>${order.name || "Valued Customer"}</strong>,<br/>Thank you for your order <strong>${order.orderId}</strong>! We have received your order details and are currently <strong>waiting for bank payment confirmation</strong>. Once our team verifies your payment slip, you will receive a payment confirmation email and we will dispatch your items.`
             },
             customer: {
                 name: order.name,
@@ -34,13 +34,13 @@ const sendBankTransferPendingEmail = async (order) => {
             },
             items: parsedItems,
             grandTotal: order.total,
-            slipImageUrl: order.paymentSlip || null,
+            slipImageUrl: null, // Customer does not need the slip image sent back to them
             showHelp: true
         });
 
         await sendEmail({
             to: order.email,
-            subject: `Order Pending Verification (${order.orderId}) — Samee and Sandu`,
+            subject: `⏳ Order Received (Waiting for Payment Confirmation) — Samee and Sandu`,
             text,
             html,
             attachments: getEmailAttachments()

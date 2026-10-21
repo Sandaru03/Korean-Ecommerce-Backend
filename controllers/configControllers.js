@@ -63,13 +63,13 @@ exports.sendOrderEmail = async (req, res) => {
             adminHtmlBody = adminEmailResult.html;
             adminPlainText = adminEmailResult.text;
 
-            // ── Customer Order Confirmation ──
+            // ── Customer Order Received (Waiting for Payment Confirmation) ──
             const customerEmailResult = renderOrderEmail({
-                title: "🛒 Order Confirmation",
-                subtitle: "Samee and Sandu — Thank You For Your Order",
+                title: "⏳ Order Received",
+                subtitle: "Samee and Sandu — Waiting for Payment Confirmation",
                 statusAlert: {
-                    type: "info",
-                    message: `Hello <strong>${name || "Valued Customer"}</strong>,<br/>Thank you for shopping with us! We have received your order details and are preparing your items. You will be notified as soon as your package is dispatched.`
+                    type: "pending",
+                    message: `Hello <strong>${name || "Valued Customer"}</strong>,<br/>Thank you for your order! We have received your order details and are currently <strong>waiting for bank payment confirmation</strong>. Once our team verifies your payment slip, you will receive a payment confirmation email and we will dispatch your items.`
                 },
                 customer: {
                     name,
@@ -83,7 +83,7 @@ exports.sendOrderEmail = async (req, res) => {
                 subtotal,
                 deliveryFee,
                 grandTotal,
-                slipImageUrl: slipImageUrl || null,
+                slipImageUrl: null, // Customer does not need the slip image sent back to them
                 showHelp: true
             });
             customerHtmlBody = customerEmailResult.html;
@@ -92,9 +92,11 @@ exports.sendOrderEmail = async (req, res) => {
             // ── Legacy fallback (plain summary text) ──
             const summaryText = String(summary || "");
             adminPlainText = summaryText.replace(/\*/g, "");
+            customerPlainText = summaryText.replace(/\*/g, "");
             if (slipImageUrl) adminPlainText += `\n\nPayment Slip: ${slipImageUrl}`;
 
             adminHtmlBody = `<pre style="font-family: inherit;">${summaryText.replace(/\*/g, "<b>").replace(/\*/g, "</b>")}</pre>`;
+            customerHtmlBody = adminHtmlBody;
             if (slipImageUrl) {
                 adminHtmlBody += `
                     <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
@@ -104,8 +106,6 @@ exports.sendOrderEmail = async (req, res) => {
                     </div>
                 `;
             }
-            customerHtmlBody = adminHtmlBody;
-            customerPlainText = adminPlainText;
         }
 
         // Send to Site Owner
@@ -117,19 +117,19 @@ exports.sendOrderEmail = async (req, res) => {
             attachments: getEmailAttachments()
         });
 
-        // Send Confirmation to Customer
+        // Send Initial Order Received Email to Customer
         const customerEmail = email || orderData?.email;
         if (customerEmail) {
             try {
                 await sendEmail({
                     to: customerEmail,
-                    subject: "🛒 Order Confirmation — Samee and Sandu",
+                    subject: "⏳ Order Received (Waiting for Payment Confirmation) — Samee and Sandu",
                     text: customerPlainText,
                     html: customerHtmlBody,
                     attachments: getEmailAttachments()
                 });
             } catch (customerErr) {
-                console.error("Failed to send customer confirmation email:", customerErr);
+                console.error("Failed to send customer order received email:", customerErr);
             }
         }
 
